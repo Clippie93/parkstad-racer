@@ -9,6 +9,7 @@ const MenuScroll = preload("res://scripts/menu_scroll.gd")
 const Sfx = preload("res://scripts/sfx.gd")
 const TITLE_RECT := Rect2(50, 14, 420, 70)   # titel in de kop (ontwerpcoördinaten)
 const Header = preload("res://scripts/menu_header.gd")
+const TouchControls = preload("res://scripts/touch_controls.gd")
 
 const LIST_X := 60.0
 const LIST_W := 1160.0
@@ -26,6 +27,7 @@ var settings_page: Control
 var profile_page: Control
 var first_level: Button
 var help_box: VBoxContainer
+var controls_help: Label     # Besturing-kolom: tekst hangt af van toetsenbord of aanraken
 var scroll: Node
 
 func _ready() -> void:
@@ -65,6 +67,8 @@ func _show(id: String) -> void:
     if scroll != null:
         scroll.set_content_height(720.0)
         if id == "help":
+            if controls_help != null:
+                controls_help.text = _controls_text()   # besturing kan bij Instellingen gewijzigd zijn
             _fit_help.call_deferred()
 
 # De uitleg kan langer zijn dan het scherm: dan scrollt hij (zodra de tekst is opgemaakt).
@@ -539,13 +543,27 @@ de telefoon blijft koeler en gaat langer mee.", 16, Color("9aa3ab"))
     page.add_child(bt)
     return page
 
+# Besturing-uitleg voor dit apparaat: toetsen, of de gekozen aanraakbesturing.
+func _controls_text() -> String:
+    if not TouchControls.enabled():
+        return "Gas: pijltje omhoog / W\nRemmen en achteruit: pijltje omlaag / S\nSturen: pijltjes / A en D\nHandrem: spatie\nTerug naar checkpoint: R\nPauze: Esc\n\nCamera wissel je in het pauzemenu."
+    var t: String
+    match Game.touch_scheme():
+        "tilt":
+            t = "Gas gaat vanzelf.\nSturen: kantel de telefoon.\nLinks vasthouden: remmen.\nRechts vasthouden: handrem."
+        "tap":
+            t = "Gas gaat vanzelf.\nSturen: links op het scherm (linker- of rechtervlak).\nRechts onderin: remmen.\nRechts daarboven: handrem."
+        _:
+            t = "Sturen: joystick links.\nRechts: gas, rem en handrem."
+    return t + "\nBovenin: pauze en R (terug naar checkpoint).\n\nAndere besturing kies je bij Instellingen.\nCamera wissel je in het pauzemenu.\nTelefoon warm? Zet Batterij sparen aan."
+
 func _help_page() -> Control:
     var page := Control.new()
     page.set_anchors_preset(Control.PRESET_FULL_RECT)
     page.mouse_filter = Control.MOUSE_FILTER_IGNORE
     var cols := [
-        ["Besturing", "Gas: pijltje omhoog / W\nRemmen en achteruit: pijltje omlaag / S\nSturen: pijltjes / A en D\nHandrem: spatie\nTerug naar checkpoint: R\nPauze: Esc\n\nTelefoon: joystick, pijltjes of kantelen (Instellingen).\nCamera wissel je in het pauzemenu.\nTelefoon warm? Zet Batterij sparen aan."],
-        ["De race", "Je start als 7e van 8. Top 3 = medaille en de volgende stad vrij.\n\nDe klok loopt af: elk checkpoint geeft extra tijd. Ze staan vlak voor de bezienswaardigheden.\n\nOp het gras ben je trager.\n\nVrij rijden: zonder klok en tegenstanders.\n\nHet niveau kies je bij Instellingen."],
+        ["Besturing", _controls_text()],
+        ["De race", "Top 3 = medaille en de volgende stad vrij.\n\nDe klok loopt af: elk checkpoint geeft extra tijd. Ze staan vlak voor de bezienswaardigheden.\n\nVrij rijden: zonder klok en tegenstanders.\n\nHet niveau kies je bij Instellingen."],
         ["Geld en garage", "Prijzengeld per plaats: meer in latere steden en op Moeilijk.\n\nFlitspaal omver: extra tijd en geld. Door rood: kleine bonus.\n\nGeflitst? Dan komt de politie. Aangehouden: boete en tijdverlies. Ontsnapt: bonus.\n\nFietser geraakt: -8 s en de politie komt.\n\nIn de garage: auto's, upgrades en lak."],
     ]
     help_box = VBoxContainer.new()
@@ -565,6 +583,8 @@ func _help_page() -> Control:
         row.add_child(col)
         col.add_child(_label(String(c[0]), 26, Color("f3df68")))
         var body := _label(String(c[1]), 18, Color("cfd3d6"))
+        if c[0] == "Besturing":
+            controls_help = body
         body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
         body.custom_minimum_size = Vector2(w, 0)
         col.add_child(body)
