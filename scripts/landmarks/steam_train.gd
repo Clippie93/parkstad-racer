@@ -113,7 +113,14 @@ func _sound() -> void:
     steam.position = Vector3(0, 3.0, -4.0)
     (cars[0][0] as Node3D).add_child(steam)
     whistle = AudioStreamPlayer3D.new()
-    whistle.stream = load("res://assets/steam_whistle.wav")
+    # vijf losse tooten uit "Steam train whistles; pulls out" (craigsmith, freesound, CC0);
+    # elke keer een andere, nooit twee keer dezelfde achter elkaar
+    var toots := AudioStreamRandomizer.new()
+    toots.playback_mode = AudioStreamRandomizer.PLAYBACK_RANDOM_NO_REPEATS
+    toots.random_pitch = 1.0
+    for i in range(5):
+        toots.add_stream(i, load("res://assets/steam_whistle_%d.wav" % (i + 1)))
+    whistle.stream = toots
     whistle.unit_size = 70.0
     whistle.max_distance = 1500.0
     whistle.volume_db = 2.0
