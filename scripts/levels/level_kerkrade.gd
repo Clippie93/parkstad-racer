@@ -224,8 +224,9 @@ func _flat(c: Vector3) -> void:
             Kit.box(f, "Flat window", Vector3(x + 1.6, y + 0.8, 0.05), Vector3(1.6, 1.4, 0.08), Color("2f3a40"))
             Kit.box(f, "Flat door", Vector3(x - 0.8, y + 1.0, 0.05), Vector3(1.0, 2.1, 0.08), Color("2f3a40"))
             Kit.box(f, "Balcony", Vector3(x - 0.8, y, 0.75), Vector3(2.6, 0.18, 1.5), Color("e4e2dc"))
-            for bx in [-2.05, 0.45]:
-                Kit.box(f, "Balcony rail", Vector3(x + bx * 0.5 - 0.15, y + 0.55, 1.45), Vector3(1.25, 0.9, 0.05), Color("f2f2ee"))
+            Kit.box(f, "Balcony rail", Vector3(x - 0.8, y + 0.55, 1.475), Vector3(2.6, 0.9, 0.05), Color("f2f2ee"))
+            for sx in [-1.0, 1.0]:
+                Kit.box(f, "Balcony side", Vector3(x - 0.8 + sx * 1.275, y + 0.55, 0.75), Vector3(0.05, 0.9, 1.5), Color("f2f2ee"))
 
 # Supermarkt met lage zadelkap, witte gevel, grijs dak, blauw logo en een reclamezuil.
 func _lidl(c: Vector3) -> void:

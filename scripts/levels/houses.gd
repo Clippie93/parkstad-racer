@@ -356,6 +356,9 @@ static func _flat(root: Node3D) -> void:
 			if fl > 0:
 				_b(root, "trim", Vector3(x - 0.6, y - 0.05, 0.8), Vector3(3.0, 0.18, 1.6))
 				_b(root, "trim", Vector3(x - 0.6, y + 0.5, 1.58), Vector3(3.0, 0.9, 0.05))
+				# zijwanden van het balkon
+				for sx in [-1.0, 1.0]:
+					_b(root, "trim", Vector3(x - 0.6 + sx * 1.475, y + 0.5, 0.8), Vector3(0.05, 0.9, 1.6))
 	_b(root, "lawn", Vector3(0, 0.04, 2.2), Vector3(w, 0.08, 4.4))
 	_b(root, "pave", Vector3(-9.0, 0.06, 2.2), Vector3(2.0, 0.1, 4.4))
 
