@@ -5,6 +5,7 @@ extends RefCounted
 #   "coupe"  - lage sportcoupé met lange motorkap, fastback en achterspoiler
 #   "sedan"  - sedan met aparte kofferbak
 #   "estate" - stationwagen (alleen de politie)
+#   "pickup", "van", "retro", "proto" - voorstellen voor nieuwe auto's (25-11)
 # Elke auto krijgt lak, twee racestrepen, een startnummer op deuren en dak, velgen,
 # koplampen, achterlichten, spiegels en een uitlaat. Voorkant = lokaal -Z.
 const Kit = preload("res://scripts/build_kit.gd")
@@ -29,6 +30,36 @@ const STYLES := {
             Vector2(1.84, 0.9), Vector2(2.0, 0.82), Vector2(2.0, 0.30)],
         "cabin": [Vector2(-0.6, 0.86), Vector2(0.12, 1.32), Vector2(1.38, 1.3), Vector2(1.9, 0.9)],
         "cabin_w": [0.86, 0.68], "wheel_z": [-1.3, 1.3], "round_lights": false, "spoiler": false,
+    },
+    # ---- voorstellen voor nieuwe auto's (25-11), nog niet in de garage ----
+    # pick-up: hoog op de wielen, cabine voorin, open laadbak achter
+    "pickup": {
+        "body": [Vector2(-2.05, 0.42), Vector2(-2.05, 0.82), Vector2(-1.85, 0.98), Vector2(-0.95, 1.04),
+            Vector2(2.0, 1.04), Vector2(2.05, 0.98), Vector2(2.05, 0.42)],
+        "cabin": [Vector2(-0.92, 1.04), Vector2(-0.45, 1.6), Vector2(0.45, 1.6), Vector2(0.55, 1.04)],
+        "cabin_w": [0.88, 0.8], "wheel_z": [-1.3, 1.32], "round_lights": false, "spoiler": false,
+        "wheel_r": 0.42, "bed": [0.62, 1.96],
+    },
+    # busje: hoog en hoekig, ramen rondom
+    "van": {
+        "body": [Vector2(-2.1, 0.32), Vector2(-2.1, 0.74), Vector2(-1.92, 0.94), Vector2(-1.3, 1.0),
+            Vector2(2.06, 1.02), Vector2(2.1, 0.96), Vector2(2.1, 0.32)],
+        "cabin": [Vector2(-1.27, 1.0), Vector2(-0.78, 1.86), Vector2(1.98, 1.86), Vector2(2.08, 1.02)],
+        "cabin_w": [0.9, 0.86], "wheel_z": [-1.38, 1.36], "round_lights": true, "spoiler": false,
+    },
+    # kleine, ronde klassieker met ronde koplampen
+    "retro": {
+        "body": [Vector2(-1.75, 0.3), Vector2(-1.75, 0.6), Vector2(-1.55, 0.76), Vector2(-0.5, 0.84),
+            Vector2(1.15, 0.86), Vector2(1.6, 0.76), Vector2(1.75, 0.62), Vector2(1.75, 0.3)],
+        "cabin": [Vector2(-0.48, 0.84), Vector2(0.0, 1.3), Vector2(0.68, 1.3), Vector2(1.3, 0.85)],
+        "cabin_w": [0.82, 0.6], "wheel_z": [-1.12, 1.12], "round_lights": true, "spoiler": false,
+    },
+    # prototype: plat en wigvormig, kleine koepel, grote vleugel
+    "proto": {
+        "body": [Vector2(-2.15, 0.26), Vector2(-2.15, 0.42), Vector2(-1.2, 0.62), Vector2(-0.3, 0.74),
+            Vector2(1.6, 0.8), Vector2(2.15, 0.82), Vector2(2.15, 0.28)],
+        "cabin": [Vector2(-0.4, 0.74), Vector2(0.25, 1.08), Vector2(0.85, 1.08), Vector2(1.5, 0.8)],
+        "cabin_w": [0.7, 0.5], "wheel_z": [-1.35, 1.4], "round_lights": false, "spoiler": true,
     },
     "sedan": {
         "body": [Vector2(-1.95, 0.30), Vector2(-1.95, 0.64), Vector2(-1.72, 0.78), Vector2(-0.64, 0.88),
@@ -80,6 +111,15 @@ static func build(car: Node3D, body: Color, stripe: Color, style: String, number
     Kit.box(car, "Grille", Vector3(0, 0.55, front - 0.015), Vector3(0.9, 0.14, 0.04), Color("111316"))
     for x in [-1.0, 1.0]:
         Kit.box(car, "Sill", Vector3(x * (BODY_HW + 0.005), 0.33, 0), Vector3(0.03, 0.08, 2.6), Color("16181b"))
+    # open laadbak (pick-up): donkere bak in de bovenkant, met een rand in lakkleur
+    if st.has("bed"):
+        var bed: Array = st["bed"]
+        var top: float = (st["body"][4] as Vector2).y
+        Kit.box(car, "Bed", Vector3(0, top + 0.005, (float(bed[0]) + float(bed[1])) * 0.5),
+            Vector3(BODY_HW * 2.0 - 0.16, 0.012, float(bed[1]) - float(bed[0])), Color("1e2124"))
+        Kit.box(car, "Roll bar", Vector3(0, top + 0.35, float(bed[0]) + 0.1), Vector3(BODY_HW * 2.0 - 0.2, 0.07, 0.07), Color("2a2d31"))
+        for x in [-1.0, 1.0]:
+            Kit.box(car, "Roll bar post", Vector3(x * (BODY_HW - 0.12), top + 0.17, float(bed[0]) + 0.1), Vector3(0.07, 0.35, 0.07), Color("2a2d31"))
     if number != -1:      # de politie (-1) krijgt eigen, smalle lampen
         _lights(car, st, front, rear)
     _wheels(car, st)
@@ -165,10 +205,11 @@ static func _lights(car: Node3D, st: Dictionary, front: float, rear: float) -> v
 static func _wheels(car: Node3D, st: Dictionary) -> void:
     var tyre := Color("15171a")
     var rim := Color("c9ced2")
+    var r: float = float(st.get("wheel_r", 0.34))
     for z in st["wheel_z"]:
         for x in [-1.0, 1.0]:
-            var c := Vector3(x * 0.84, 0.34, float(z))
-            Kit.cyl(car, "Tyre", c, 0.34, 0.34, 0.26, tyre, 18, "x")
+            var c := Vector3(x * 0.84, r, float(z))
+            Kit.cyl(car, "Tyre", c, r, r, 0.26, tyre, 18, "x")
             Kit.cyl(car, "Rim", c + Vector3(x * 0.1, 0, 0), 0.23, 0.23, 0.08, rim, 18, "x")
             Kit.cyl(car, "Hub", c + Vector3(x * 0.14, 0, 0), 0.06, 0.06, 0.03, Color("3a3f44"), 10, "x")
             for k in range(5):
@@ -176,7 +217,7 @@ static func _wheels(car: Node3D, st: Dictionary) -> void:
                 var spoke := Kit.box(car, "Spoke", c + Vector3(x * 0.145, sin(a) * 0.12, cos(a) * 0.12), Vector3(0.02, 0.2, 0.045), Color("8d9398"))
                 spoke.rotation.x = -a
             # wielkast: donkere boog boven het wiel
-            Kit.box(car, "Arch", Vector3(x * (BODY_HW + 0.01), 0.62, float(z)), Vector3(0.04, 0.08, 0.8), Color("16181b"))
+            Kit.box(car, "Arch", Vector3(x * (BODY_HW + 0.01), r + 0.28, float(z)), Vector3(0.04, 0.08, 0.8 + (r - 0.34) * 2.0), Color("16181b"))
 
 # Twee racestrepen over motorkap, dak en achterkant.
 static func _stripes(car: Node3D, st: Dictionary, color: Color) -> void:
