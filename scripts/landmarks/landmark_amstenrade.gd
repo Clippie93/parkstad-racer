@@ -147,42 +147,64 @@ func _tower(c: Vector3) -> void:
 	Kit.box(self, "Vane", c + Vector3(0, h + 7.7, 0), Vector3(0.05, 1.4, 0.05), Color("2a2a2a"))
 	Kit.box(self, "Vane flag", c + Vector3(0.3, h + 8.1, 0), Vector3(0.6, 0.3, 0.02), Color("2a2a2a"))
 
-# Hekpijlers met stenen bollen, balustrade en hek langs de straat.
+# Poort naar jouw foto (25-11): vier hekpijlers, twee aan de stoep en twee verder naar
+# achteren bij de oprit, met daartussen aan elke kant een schuin muurtje met hek (een
+# trechter naar de oprit). Vanaf de buitenste pijlers loopt het muurtje met hek langs de straat.
 func _gate(z: float) -> void:
+	var dark := Color("2a2a2c")
 	for sx in [-1.0, 1.0]:
-		var p := Vector3(sx * 3.2, 0, z)
-		# naar jouw foto: lichtgrijze natuursteen met smalle, gedempte baksteenbanden,
-		# een geprofileerde kap en een stenen bol op een halsje
-		var pale := Color("a9a69e")
-		var band := Color("8d6f62")
-		Kit.box(self, "Gate pillar", p + Vector3(0, 1.8, 0), Vector3(1.0, 3.6, 1.0), pale, true)
-		Kit.box(self, "Pillar base", p + Vector3(0, 0.3, 0), Vector3(1.2, 0.6, 1.2), Color("9a978f"))
-		for k in range(5):
-			Kit.box(self, "Pillar band", p + Vector3(0, 1.0 + float(k) * 0.55, 0), Vector3(1.02, 0.2, 1.02), band)
-		Kit.box(self, "Pillar cap", p + Vector3(0, 3.7, 0), Vector3(1.25, 0.2, 1.25), pale)
-		Kit.box(self, "Pillar cap", p + Vector3(0, 3.88, 0), Vector3(1.05, 0.16, 1.05), pale)
-		Kit.cyl(self, "Pillar neck", p + Vector3(0, 4.1, 0), 0.3, 0.2, 0.3, pale, 10)
-		var ball := MeshInstance3D.new()
-		ball.name = "Pillar ball"
-		var bm := SphereMesh.new()
-		bm.radius = 0.36
-		bm.height = 0.72
-		bm.radial_segments = 14
-		bm.rings = 7
-		ball.mesh = bm
-		ball.material_override = Kit.mat(pale)
-		ball.position = p + Vector3(0, 4.55, 0)
-		add_child(ball)
-		# balustrade en hek naar de zijkant
-		var a: float = sx * 3.8
-		var b: float = sx * 30.0
-		Kit.box(self, "Garden wall", Vector3((a + b) * 0.5, 0.45, z), Vector3(absf(b - a), 0.9, 0.5), Color("b4b0a4"), true)
-		Kit.box(self, "Railing", Vector3((a + b) * 0.5, 1.6, z), Vector3(absf(b - a), 0.05, 0.05), Color("2a2a2c"))
-		var x := a
-		while absf(x) < absf(b):
-			Kit.box(self, "Railing spear", Vector3(x, 1.3, z), Vector3(0.04, 0.85, 0.04), Color("2a2a2c"))
-			x += sx * 0.35
-		Kit.box(self, "Balustrade", Vector3(sx * 2.0, 0.6, z - 2.0), Vector3(0.4, 1.2, 4.0), Color("8e8a80"))
+		var outer := Vector3(sx * 7.5, 0, z)
+		var inner := Vector3(sx * 3.2, 0, z - 4.0)
+		_pillar(outer)
+		_pillar(inner)
+		# schuin muurtje met hek tussen de buitenste en de binnenste pijler
+		_fence(outer + Vector3(-sx * 0.55, 0, -0.3), inner + Vector3(sx * 0.55, 0, 0.4), dark)
+		# muurtje met hek langs de straat
+		_fence(Vector3(sx * 8.1, 0, z), Vector3(sx * 30.0, 0, z), dark)
+
+# Laag muurtje van lichte steen met een zwart spijlenhek erop, van a naar b.
+func _fence(a: Vector3, b: Vector3, dark: Color) -> void:
+	var mid: Vector3 = (a + b) * 0.5
+	var len: float = a.distance_to(b)
+	var yaw: float = atan2(b.x - a.x, b.z - a.z)
+	var n := Node3D.new()
+	n.name = "Fence"
+	n.position = mid
+	n.rotation.y = yaw
+	add_child(n)
+	Kit.box(n, "Garden wall", Vector3(0, 0.45, 0), Vector3(0.5, 0.9, len), Color("b4b0a4"), true)
+	Kit.box(n, "Wall coping", Vector3(0, 0.93, 0), Vector3(0.6, 0.08, len), Color("a9a69e"))
+	Kit.box(n, "Railing", Vector3(0, 1.75, 0), Vector3(0.05, 0.05, len), dark)
+	Kit.box(n, "Railing", Vector3(0, 1.1, 0), Vector3(0.05, 0.05, len), dark)
+	var t := -len * 0.5 + 0.15
+	while t < len * 0.5:
+		Kit.box(n, "Railing spear", Vector3(0, 1.42, t), Vector3(0.04, 0.95, 0.04), dark)
+		Kit.box(n, "Spear tip", Vector3(0, 1.93, t), Vector3(0.07, 0.1, 0.07), dark)
+		t += 0.35
+
+# Hekpijler: lichtgrijze natuursteen met smalle, gedempte baksteenbanden, een geprofileerde
+# kap en een stenen bol op een halsje.
+func _pillar(p: Vector3) -> void:
+	var pale := Color("a9a69e")
+	var band := Color("8d6f62")
+	Kit.box(self, "Gate pillar", p + Vector3(0, 1.8, 0), Vector3(1.0, 3.6, 1.0), pale, true)
+	Kit.box(self, "Pillar base", p + Vector3(0, 0.3, 0), Vector3(1.2, 0.6, 1.2), Color("9a978f"))
+	for k in range(5):
+		Kit.box(self, "Pillar band", p + Vector3(0, 1.0 + float(k) * 0.55, 0), Vector3(1.02, 0.2, 1.02), band)
+	Kit.box(self, "Pillar cap", p + Vector3(0, 3.7, 0), Vector3(1.25, 0.2, 1.25), pale)
+	Kit.box(self, "Pillar cap", p + Vector3(0, 3.88, 0), Vector3(1.05, 0.16, 1.05), pale)
+	Kit.cyl(self, "Pillar neck", p + Vector3(0, 4.1, 0), 0.3, 0.2, 0.3, pale, 10)
+	var ball := MeshInstance3D.new()
+	ball.name = "Pillar ball"
+	var bm := SphereMesh.new()
+	bm.radius = 0.36
+	bm.height = 0.72
+	bm.radial_segments = 14
+	bm.rings = 7
+	ball.mesh = bm
+	ball.material_override = Kit.mat(pale)
+	ball.position = p + Vector3(0, 4.55, 0)
+	add_child(ball)
 
 func _tree(p: Vector3) -> void:
 	Kit.cyl(self, "Tree trunk", p + Vector3(0, 3.5, 0), 0.5, 0.4, 7.0, Color("5b5148"), 8, "y", true)
