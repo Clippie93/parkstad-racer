@@ -577,7 +577,7 @@ de telefoon blijft koeler en gaat langer mee.", 16, Color("9aa3ab"))
     # iPhone/iPad in de browser: uitleg om het spel op het beginscherm te zetten
     # (die komt ook vanzelf, zie html/head_include in export_presets.cfg)
     # Android (Chrome e.d.): de knop opent meteen de installatievraag van de browser
-    if OS.has_feature("web") and JavaScriptBridge.eval("!!(window.parkstadCanInstallApp && window.parkstadCanInstallApp())", true) == true:
+    if _js_true("window.parkstadCanInstallApp && window.parkstadCanInstallApp()"):
         var ih := _label("App", 20, Color("cfd3d6"))
         ih.position = Vector2(860, Header.CONTENT_Y + 390.0)
         page.add_child(ih)
@@ -587,7 +587,7 @@ de telefoon blijft koeler en gaat langer mee.", 16, Color("9aa3ab"))
         ib.custom_minimum_size = Vector2(360, 44)
         ib.add_theme_font_size_override("font_size", 16)
         page.add_child(ib)
-    elif OS.has_feature("web") and JavaScriptBridge.eval("!!(window.parkstadCanInstall && window.parkstadCanInstall())", true) == true:
+    elif _js_true("window.parkstadCanInstall && window.parkstadCanInstall()"):
         var ah := _label("Beginscherm", 20, Color("cfd3d6"))
         ah.position = Vector2(860, Header.CONTENT_Y + 390.0)
         page.add_child(ah)
@@ -598,6 +598,13 @@ de telefoon blijft koeler en gaat langer mee.", 16, Color("9aa3ab"))
         ab.add_theme_font_size_override("font_size", 16)
         page.add_child(ab)
     return page
+
+# Vraag iets aan de webpagina; de browser geeft ja/nee terug als 0/1 (of niets).
+func _js_true(expr: String) -> bool:
+    if not OS.has_feature("web"):
+        return false
+    var r = JavaScriptBridge.eval("(%s) ? 1 : 0" % expr, true)
+    return r != null and typeof(r) in [TYPE_INT, TYPE_FLOAT, TYPE_BOOL] and int(r) == 1
 
 # Besturing-uitleg voor dit apparaat: toetsen, of de gekozen aanraakbesturing.
 func _controls_text() -> String:
