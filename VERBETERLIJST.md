@@ -1,6 +1,7 @@
 # Verbeterlijst gebouwen
 
 ## Op weg naar v1 (single player), stand 24-11
+- **25-11 afronding:** versienummer "v1.0" klein naast de titel in het menu (uit project.godot, application/config/version); Uitleg-pagina bijgewerkt (aanraakbesturingen, camera, Batterij sparen, checkpoints vóór de bezienswaardigheden, mini-leaderboard, flitsklassement); de spelmap is nu een git-repository (alleen lokaal, niet gepusht) met een eerste commit, zodat de broncode veilig is. Na jouw volledige test: tag "v1.0".
 - ~~**Bezienswaardigheden op de terugwegen**~~ **gedaan 25-11**: Simpelveld (Sint-Remigiuskerk, Kasteel De Bongard), Voerendaal (Molen op de Vrouweheide, Station Klimmen-Ransdaal), Beekdaelen (Alfa-brouwerij, Kasteel Amstenrade, Nonke Buusjke).
 - **Heerlen:** goed zo (24-11): ON I en Pancratiusplein in de eerste helft, Maankwartier en Kasteel Hoensbroek op de terugweg.
 - **Brunssum:** goed zo (jouw oordeel, 24-11).
