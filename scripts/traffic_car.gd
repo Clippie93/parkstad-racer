@@ -17,7 +17,7 @@ var cur_speed := 13.0
 var oncoming := false
 var lane := 3.4
 
-func setup(r, start_s: float, end_s: float, v: float, against: bool, color: Color, van: bool) -> void:
+func setup(r, start_s: float, end_s: float, v: float, against: bool, color: Color, van: bool, kind: int = -1) -> void:
 	route = r
 	s = start_s
 	s_max = end_s
@@ -26,7 +26,7 @@ func setup(r, start_s: float, end_s: float, v: float, against: bool, color: Colo
 	oncoming = against
 	if not all.has(self):
 		all.append(self)
-	build_look(color, van)
+	build_look(color, van, kind)
 	_apply()
 
 func _enter_tree() -> void:
@@ -36,27 +36,84 @@ func _enter_tree() -> void:
 func _exit_tree() -> void:
 	all.erase(self)
 
-func build_look(color: Color, van: bool) -> void:
+# Modellen uit de Car Kit van Kenney (CC0). Per model de kleurvlakken (64x64 op de
+# colormap) die samen de lak vormen: eerst het lichte vlak, daarna het donkere.
+# Een leeg lijstje = het model houdt zijn eigen kleur (taxi, bestelwagen).
+const MODELS := {
+	"sedan": [Vector2i(6, 2), Vector2i(6, 3)],
+	"sedan-sports": [Vector2i(6, 2), Vector2i(6, 3)],
+	"hatchback-sports": [Vector2i(3, 2), Vector2i(3, 3)],
+	"suv": [Vector2i(3, 4)],
+	"suv-luxury": [Vector2i(4, 2), Vector2i(4, 3)],
+	"taxi": [],
+	"van": [Vector2i(7, 2), Vector2i(7, 3)],
+	"delivery": [],
+}
+const CARS := ["sedan", "sedan-sports", "hatchback-sports", "suv", "suv-luxury", "sedan", "taxi"]
+const VANS := ["van", "delivery"]
+# Kenney-auto's zijn kort en breed; zo groot dat ze naast de racers passen
+const MODEL_SCALE := 1.35
+static var _scenes := {}     # model -> PackedScene
+static var _paints := {}     # "model|kleur" -> StandardMaterial3D
+
+static func _paint_mat(model: String, color: Color, base: StandardMaterial3D) -> StandardMaterial3D:
+	var cells: Array = MODELS[model]
+	if cells.is_empty():
+		return base
+	var key := model + "|" + color.to_html(false)
+	if _paints.has(key):
+		return _paints[key]
+	var img: Image = base.albedo_texture.get_image()
+	if img.is_compressed():
+		img = img.duplicate()
+		img.decompress()
+	var out: Image = img.duplicate()
+	var c0: Vector2i = cells[0]
+	var ref: float = maxf(img.get_pixel(c0.x * 64 + 32, c0.y * 64 + 32).get_luminance(), 0.01)
+	# de vlakken zijn effen: één kleur per vlak, met dezelfde helderheidsverhouding
+	for cell in cells:
+		var k: float = img.get_pixel(cell.x * 64 + 32, cell.y * 64 + 32).get_luminance() / ref
+		out.fill_rect(Rect2i(cell.x * 64, cell.y * 64, 64, 64), Color(color.r * k, color.g * k, color.b * k))
+	var m: StandardMaterial3D = base.duplicate()
+	m.albedo_texture = ImageTexture.create_from_image(out)
+	_paints[key] = m
+	return m
+
+func build_look(color: Color, van: bool, kind: int = -1) -> void:
 	sync_to_physics = false
+	var list: Array = VANS if van else CARS
+	if kind < 0:
+		kind = absi(hash(color.to_html()) + get_instance_id())
+	var model: String = list[kind % list.size()]
+	if not _scenes.has(model):
+		_scenes[model] = load("res://assets/traffic/%s.glb" % model)
+	var vis: Node3D = (_scenes[model] as PackedScene).instantiate()
+	vis.name = "Model"
+	# Kenney-modellen kijken naar +Z, het verkeer rijdt naar -Z
+	vis.rotation.y = PI
+	vis.scale = Vector3.ONE * MODEL_SCALE
+	add_child(vis)
+	var size := Vector3.ZERO
+	for mi in vis.find_children("*", "MeshInstance3D", true, false):
+		var m := mi as MeshInstance3D
+		var t := Transform3D.IDENTITY
+		var p: Node = m
+		while p != vis:
+			t = (p as Node3D).transform * t
+			p = p.get_parent()
+		var b: AABB = t * m.mesh.get_aabb()
+		size = size.max(Vector3(maxf(absf(b.position.x), absf(b.end.x)) * 2.0, b.end.y, maxf(absf(b.position.z), absf(b.end.z)) * 2.0))
+		for si in m.mesh.get_surface_count():
+			var base := m.mesh.surface_get_material(si) as StandardMaterial3D
+			if base != null and base.albedo_texture != null:
+				m.set_surface_override_material(si, _paint_mat(model, color, base))
+	size *= MODEL_SCALE
 	var shape := BoxShape3D.new()
-	shape.size = Vector3(1.9, 1.6 if not van else 2.3, 4.2 if not van else 4.9)
+	shape.size = Vector3(size.x * 0.95, size.y - 0.2, size.z * 0.95)
 	var cs := CollisionShape3D.new()
 	cs.shape = shape
 	cs.position.y = shape.size.y * 0.5 + 0.2
 	add_child(cs)
-	var dark := Color("23272c")
-	if van:
-		Kit.box(self, "Van body", Vector3(0, 1.3, 0.2), Vector3(1.9, 2.1, 4.4), color)
-		Kit.box(self, "Van windscreen", Vector3(0, 1.75, -2.03), Vector3(1.7, 0.7, 0.06), Color("4f6f7c"))
-	else:
-		Kit.box(self, "Body", Vector3(0, 0.8, 0), Vector3(1.8, 0.6, 4.1), color)
-		Kit.box(self, "Cabin", Vector3(0, 1.38, 0.2), Vector3(1.6, 0.58, 2.1), color)
-		Kit.box(self, "Windscreen", Vector3(0, 1.4, -0.87), Vector3(1.45, 0.42, 0.05), Color("4f6f7c"))
-	for x in [-0.85, 0.85]:
-		for z in [-1.3, 1.35]:
-			Kit.cyl(self, "Wheel", Vector3(x, 0.4, z), 0.38, 0.38, 0.24, dark, 10, "x")
-		Kit.box(self, "Rear lamp", Vector3(x * 0.8, 0.95, 2.06 if not van else 2.42), Vector3(0.3, 0.18, 0.04), Color("b0262a"))
-		Kit.box(self, "Head lamp", Vector3(x * 0.8, 0.9, -2.06 if not van else -2.0), Vector3(0.3, 0.16, 0.04), Color("f2ecc4"))
 
 func _physics_process(delta: float) -> void:
 	if route == null:

@@ -861,7 +861,7 @@ func _traffic() -> void:
 		# op een gescheiden weg rijdt de linkerstrook duidelijk sneller (18-22 tegen 10-14 m/s),
 		# zodat twee verkeersauto's niet lang naast elkaar blijven rijden
 		var v: float = rng.randf_range(10.0, 14.0) + (8.0 if t.lane > 5.0 else 0.0)
-		t.setup(r, s, end_s, v, against, colors[rng.randi_range(0, colors.size() - 1)], rng.randf() < 0.2)
+		t.setup(r, s, end_s, v, against, colors[rng.randi_range(0, colors.size() - 1)], rng.randf() < 0.2, rng.randi_range(0, 99))
 
 # ---------------------------------------------------------------- spel
 # Ondergrond: naast de weg (gras, heide, plein) minder grip en een lagere topsnelheid.

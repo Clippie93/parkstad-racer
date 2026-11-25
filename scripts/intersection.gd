@@ -178,7 +178,7 @@ func _cross_traffic() -> void:
 		var c := TrafficCar.new()
 		c.name = "Cross traffic"
 		add_child(c)
-		c.build_look(colors[(i + int(s_c)) % colors.size()], false)
+		c.build_look(colors[(i + int(s_c)) % colors.size()], false, i + int(s_c))
 		var dir: float = -1.0 if i == 0 else 1.0        # rijrichting langs X
 		cross_cars.append({"car": c, "dir": dir, "x": -dir * (SIDE_LEN - 4.0 - float(i) * 20.0), "v": 0.0})
 
