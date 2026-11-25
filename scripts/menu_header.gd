@@ -32,7 +32,8 @@ static func build(parent: Control, active: String, on_tab: Callable) -> Array:
 	cash.size = Vector2(360, 40)
 	cash.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	parent.add_child(cash)
-	var who := _label("Profiel: %s" % Game.profile_name(), 16, Color("8d96a0"))
+	var who := _label(_who_text(), 16, Color("8d96a0"))
+	who.name = "Who"
 	who.position = Vector2(860, 8)
 	who.size = Vector2(360, 22)
 	who.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -71,6 +72,15 @@ static func build(parent: Control, active: String, on_tab: Callable) -> Array:
 	quit.visible = not OS.has_feature("web")
 	parent.add_child(quit)
 	return buttons
+
+# Profiel en huidig niveau rechtsboven (het niveau verandert bij Instellingen).
+static func _who_text() -> String:
+	return "Profiel: %s   ·   Niveau: %s" % [Game.profile_name(), Game.DIFFICULTIES[Game.difficulty()]]
+
+static func refresh_who(parent: Control) -> void:
+	var l := parent.get_node_or_null("Who") as Label
+	if l != null:
+		l.text = _who_text()
 
 static func refresh_cash(parent: Control) -> void:
 	var l := parent.get_node_or_null("Cash") as Label

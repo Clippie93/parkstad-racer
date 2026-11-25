@@ -86,7 +86,7 @@ func _race_page() -> Control:
         page.add_child(_sign_status(i, Vector2(x, y + SIGN_H + 8.0)))
         if first_level == null and not btn.disabled:
             first_level = btn
-    var hint := _label("Tik op een stad om te racen of vrij te rijden. Haal de top 3 om de volgende stad vrij te spelen.   Moeilijkheid: %s (wijzig bij Instellingen)" % DIFF_SHORT[Game.difficulty()], 16, Color("8d96a0"))
+    var hint := _label("Tik op een stad om te racen of vrij te rijden. Haal de top 3 om de volgende stad vrij te spelen. Onder elke stad: je medailles per niveau (wijzig het niveau bij Instellingen).", 16, Color("8d96a0"))
     hint.position = Vector2(LIST_X + 4, Header.CONTENT_Y + 2.0 * (SIGN_H + 72.0) + 6.0)
     page.add_child(hint)
     if Game.test_mode():
@@ -176,8 +176,6 @@ func _sign_status(i: int, at: Vector2) -> Control:
         for d in range(3):
             var m: int = Game.best_medal(id, d)
             var dl := _label(DIFF_SHORT[d], 14, Game.MEDAL_COLORS[m] if m > 0 else Color("4f5966"))
-            if d == Game.difficulty():
-                dl.text = "[" + dl.text + "]"
             row.add_child(dl)
         box.add_child(row)
     return box
@@ -482,7 +480,9 @@ func _settings_page() -> Control:
     for d in diffs:
         opt3.add_item(d)
     opt3.select(Game.difficulty())
-    opt3.item_selected.connect(func(idx: int): Game.set_difficulty(idx))
+    opt3.item_selected.connect(func(idx: int):
+        Game.set_difficulty(idx)
+        Header.refresh_who(self))
     page.add_child(opt3)
     var pol := CheckBox.new()
     pol.text = "Politie inschakelen"
