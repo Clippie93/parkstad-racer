@@ -22,7 +22,7 @@ signal state(from: int, data: PackedByteArray)
 signal failed(reason: String)
 signal disconnected()
 
-const DEFAULT_SERVER := "https://parkstad-racer-mp.workers.dev"   # na het uploaden aanpassen
+const DEFAULT_SERVER := "https://parkstad-racer-mp.cliffwings.workers.dev"
 const PING_EVERY := 1.0
 
 var server := DEFAULT_SERVER

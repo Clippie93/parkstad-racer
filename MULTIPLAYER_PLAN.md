@@ -1,6 +1,6 @@
 # Plan: multiplayer (na v1.1)
 
-Stand: 25-11, eerste versie van het plan. Nog niets gebouwd.
+Stand: 25-11. Fase 0 (server) is klaar; fase 1 (spookauto's) is de volgende stap.
 
 ## Jouw keuzes (25-11)
 
@@ -86,8 +86,10 @@ is het waar mogelijk sneller.
 
 ## Fasen
 
-0. **Server:** Cloudflare Worker met een kamer per code. Ik schrijf de code; voor het
-   uploaden is jouw Cloudflare-account nodig (eenmalig inloggen met `wrangler`).
+0. ~~**Server:** Cloudflare Worker met een kamer per code.~~ **Klaar (25-11):** staat online
+   op https://parkstad-racer-mp.cliffwings.workers.dev (code in `server/`, uploaden met
+   `npm run deploy` in die map). Test `npm test` (11 controles) slaagt lokaal en online; de
+   Godot-client `scripts/net_client.gd` werkt ermee (ping ~34 ms vanaf de Mac).
 1. **Spookauto's:** twee browsers (Mac en iPhone) in hetzelfde level zien elkaar rijden.
    Nog geen lobby. Meten: vertraging, schokken en verbruik van de gratis limiet.
 2. **Lobby en start:** kamer maken en meedoen met code, lobby met hostinstellingen,
