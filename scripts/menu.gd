@@ -86,7 +86,7 @@ func _race_page() -> Control:
         page.add_child(_sign_status(i, Vector2(x, y + SIGN_H + 8.0)))
         if first_level == null and not btn.disabled:
             first_level = btn
-    var hint := _label("Tik op een stad om te racen of vrij te rijden. Haal de top 3 om de volgende stad vrij te spelen. Onder elke stad: je medailles per niveau (wijzig het niveau bij Instellingen).", 16, Color("8d96a0"))
+    var hint := _label("Tik op een stad om te racen of vrij te rijden. Haal de top 3 om de volgende stad vrij te spelen.", 16, Color("8d96a0"))
     hint.position = Vector2(LIST_X + 4, Header.CONTENT_Y + 2.0 * (SIGN_H + 72.0) + 6.0)
     page.add_child(hint)
     if Game.test_mode():
