@@ -81,7 +81,10 @@ func _physics_process(delta: float) -> void:
     car.surface_grip = race.OFF_GRIP if off else 1.0
     car.surface_speed = race.OFF_SPEED if off else 1.0
 
-    if not finished and lap >= race.laps:
+    # finishen op dezelfde plek als jij (de finishpoort, iets voor het begin van de route);
+    # eerst telden ze pas ~10 m verder, waardoor ze ~0,2 s te laat finishten en je soms
+    # een plaats hoger eindigde terwijl je er duidelijk achter zat
+    if not finished and (lap >= race.laps or (lap == race.laps - 1 and s >= race.finish_s())):
         finished = true
         finish_time = race.race_clock
         race.on_rival_finished(self)

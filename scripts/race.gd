@@ -33,6 +33,7 @@ const LEVEL_BOOST := 0.025    # tegenstanders per level 2,5% sterker (accelerati
 # anders ~195 km/u tegen 166 km/u van de startauto, op de lange rechte stukken van de
 # Buitenring niet bij te houden. Ze worden vooral sterker in de bochten.
 const LEVEL_BOOST_SPEED := 0.0175
+const SPEED_MARGIN := [0.02, 0.06]   # Makkelijk/Normaal: hoogstens zoveel sneller dan jouw topsnelheid
 # Moeilijkheid (Makkelijk, Normaal, Moeilijk): niveau en auto van de tegenstanders, en de
 # tijdslimiet per stuk. Normaal is na jouw testritten iets sneller gezet (ze waren te traag).
 const DIFF_SKILL := [0.93, 1.015, 1.052]
@@ -634,6 +635,11 @@ func _rival_stats() -> Dictionary:
 		var f: float = (1.0 + boost * float(Game.current_index)) * DIFF_CAR[Game.difficulty()] * hard
 		var extra: float = maxf(float(mine[k]) - float(base[k]), 0.0)
 		out[k] = float(base[k]) * f + extra * share
+	# Makkelijk en Normaal: op de rechte stukken nooit (veel) sneller dan jouw auto, anders
+	# rijdt een koploper in de finale (lange rechte stukken) onbereikbaar weg met de
+	# startauto (jouw test, 25-11). In bochten blijven ze sterker (grip, acceleratie, remmen).
+	if Game.difficulty() < 2:
+		out["speed"] = minf(float(out["speed"]), float(mine["speed"]) * (1.0 + SPEED_MARGIN[Game.difficulty()]))
 	return out
 
 # Startopstelling: 4 rijen van 2, de speler op PLAYER_SLOT, de tegenstanders ervoor/ernaast.
@@ -740,6 +746,11 @@ func obstacles() -> Array:
 	if police != null and is_instance_valid(police.car):
 		out.append(police.car)
 	return out
+
+# Waar een tegenstander als gefinisht telt: zijn midden op dezelfde plek als het jouwe op
+# het moment dat jouw auto de finishpoort raakt (poort 2,5 m diep, auto 1,9 m voor het midden).
+func finish_s() -> float:
+	return cp_s[cp_s.size() - 1] - 4.4 if cp_s.size() > 0 else level.route.length
 
 func on_rival_finished(d) -> void:
 	finish_order.append(d.driver_name)
