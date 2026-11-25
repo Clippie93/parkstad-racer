@@ -321,24 +321,43 @@ func _physics_process(delta: float) -> void:
         _update_camera(delta)
     _resolve_collisions(forward)
 
-# Meekantelen met de helling (trappen, heuvels, taluds): eerst bleef de auto waterpas en
+# Meekantelen met de grond (trappen, heuvels, taluds): eerst bleef de auto waterpas en
 # hing hij op een helling half in de lucht. Het botsblok blijft rechtop; alleen het beeld
-# kantelt naar de vloer, en zakt zoveel als het blok op een helling boven de grond hangt.
-const TILT_HALF_LEN := 1.9
+# kantelt. De grond wordt onder alle vier de wielen gemeten (een straal recht naar beneden),
+# zodat het ook klopt op de overgang van helling naar vlak en als je scheef staat.
+const TILT_WHEELS := [Vector3(-0.8, 0, -1.55), Vector3(0.8, 0, -1.55), Vector3(-0.8, 0, 1.55), Vector3(0.8, 0, 1.55)]
 var tilt: Node3D
+var _tilt_query: PhysicsRayQueryParameters3D
 func _tilt_to_ground(delta: float) -> void:
     if tilt == null:
         return
-    var target := Quaternion.IDENTITY
-    var drop := 0.0
-    if is_on_floor():
-        var n: Vector3 = (global_transform.basis.inverse() * get_floor_normal()).normalized()
-        if n.y > 0.5:
-            target = Quaternion(Vector3.UP, n)
-            drop = TILT_HALF_LEN * tan(acos(clampf(n.y, -1.0, 1.0)))
-    var k: float = minf(1.0, delta * 10.0)
+    if _tilt_query == null:
+        _tilt_query = PhysicsRayQueryParameters3D.new()
+        _tilt_query.collide_with_areas = false
+        _tilt_query.exclude = [get_rid()]
+    var space := get_world_3d().direct_space_state
+    var xf := global_transform
+    var hs: Array = []
+    for w in TILT_WHEELS:
+        var from: Vector3 = xf * (w + Vector3(0, 1.0, 0))
+        _tilt_query.from = from
+        _tilt_query.to = xf * (w + Vector3(0, -1.5, 0))
+        var hit := space.intersect_ray(_tilt_query)
+        # alleen vaste grond telt (geen andere auto's)
+        if hit.is_empty() or not (hit["collider"] is StaticBody3D):
+            hs.append(0.0)
+        else:
+            hs.append(clampf((xf.affine_inverse() * (hit["position"] as Vector3)).y, -1.5, 0.6))
+    var front: float = (hs[0] + hs[1]) * 0.5
+    var rear: float = (hs[2] + hs[3]) * 0.5
+    var left: float = (hs[0] + hs[2]) * 0.5
+    var right: float = (hs[1] + hs[3]) * 0.5
+    var pitch: float = atan2(front - rear, 3.1)       # neus omhoog als de grond voor hoger ligt
+    var roll: float = atan2(right - left, 1.6)
+    var target := Quaternion(Basis.from_euler(Vector3(pitch, 0.0, roll)))
+    var k: float = minf(1.0, delta * 14.0)
     tilt.quaternion = tilt.quaternion.slerp(target, k)
-    tilt.position.y = lerpf(tilt.position.y, -drop, k)
+    tilt.position.y = lerpf(tilt.position.y, (front + rear) * 0.5, k)
 
 # Botsingen: per contact alleen de snelheid de muur (of auto) in wegnemen, met een kleine
 # terugstuit tegen muren. Langs het oppervlak verlies je weinig bij een schampende botsing en
