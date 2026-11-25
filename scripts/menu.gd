@@ -70,6 +70,24 @@ func _show(id: String) -> void:
             if controls_help != null:
                 controls_help.text = _controls_text()   # besturing kan bij Instellingen gewijzigd zijn
             _fit_help.call_deferred()
+        else:
+            _fit_page.call_deferred(id)
+
+# Ook de andere pagina's kunnen langer zijn dan het scherm (Instellingen): dan scrollen ze,
+# ook met het muiswiel of de trackpad in de browser op de computer.
+func _fit_page(id: String) -> void:
+    await get_tree().process_frame
+    if Game.menu_tab != id:
+        return
+    var page: Control = {"race": race_page, "settings": settings_page, "profile": profile_page}.get(id, null)
+    if page == null:
+        return
+    var bottom := 720.0
+    for c in page.find_children("*", "Control", true, false):
+        var ctl := c as Control
+        if ctl.is_visible_in_tree():
+            bottom = maxf(bottom, ctl.get_global_rect().end.y - page.get_global_rect().position.y + 30.0)
+    scroll.set_content_height(bottom)
 
 # De uitleg kan langer zijn dan het scherm: dan scrollt hij (zodra de tekst is opgemaakt).
 func _fit_help() -> void:
