@@ -24,6 +24,20 @@ sed -i '' -e 's/"index\.wasm"/"index.wasm.gz"/' -e 's/"index\.html"/".\/"/' -e '
 sed -i '' 's/"start_url":"\.\/index\.html"/"start_url":".\/"/' build/web/index.manifest.json
 grep -q '"index.wasm.gz"' "$SW" && grep -q 'CACHED_FILES = \["\./"' "$SW" && ! grep -q '"index.offline.html"' "$SW"
 grep -q '"start_url":"\./"' build/web/index.manifest.json
+# Android/Chrome wil voor "App installeren" ook een icoon van 192 px (Godot maakt 144, 180
+# en 512); het installatiebalkje toont hem ook. Plus een korte naam onder het icoon.
+sips -z 192 192 build/web/index.512x512.png --out build/web/index.192x192.png >/dev/null
+python3 - build/web/index.manifest.json <<'PY'
+import json, sys
+p = sys.argv[1]
+m = json.load(open(p))
+if not any(i.get("sizes") == "192x192" for i in m["icons"]):
+    m["icons"].append({"sizes": "192x192", "src": "index.192x192.png", "type": "image/png", "purpose": "any"})
+m["short_name"] = "Parkstad Racer"
+m["id"] = "./"
+json.dump(m, open(p, "w"), separators=(",", ":"))
+PY
+grep -q '"192x192"' build/web/index.manifest.json
 rm -f build/web/index.offline.html
 mkdir -p "$SITE"
 for f in build/web/*; do

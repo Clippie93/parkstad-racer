@@ -576,7 +576,18 @@ de telefoon blijft koeler en gaat langer mee.", 16, Color("9aa3ab"))
     page.add_child(bt)
     # iPhone/iPad in de browser: uitleg om het spel op het beginscherm te zetten
     # (die komt ook vanzelf, zie html/head_include in export_presets.cfg)
-    if OS.has_feature("web") and JavaScriptBridge.eval("!!(window.parkstadCanInstall && window.parkstadCanInstall())", true) == true:
+    # Android (Chrome e.d.): de knop opent meteen de installatievraag van de browser
+    if OS.has_feature("web") and JavaScriptBridge.eval("!!(window.parkstadCanInstallApp && window.parkstadCanInstallApp())", true) == true:
+        var ih := _label("App", 20, Color("cfd3d6"))
+        ih.position = Vector2(860, Header.CONTENT_Y + 390.0)
+        page.add_child(ih)
+        var ib := _card_button("Installeer Parkstad Racer als app", func():
+            JavaScriptBridge.eval("window.parkstadInstallApp && window.parkstadInstallApp()", true))
+        ib.position = Vector2(860, Header.CONTENT_Y + 422.0)
+        ib.custom_minimum_size = Vector2(360, 44)
+        ib.add_theme_font_size_override("font_size", 16)
+        page.add_child(ib)
+    elif OS.has_feature("web") and JavaScriptBridge.eval("!!(window.parkstadCanInstall && window.parkstadCanInstall())", true) == true:
         var ah := _label("Beginscherm", 20, Color("cfd3d6"))
         ah.position = Vector2(860, Header.CONTENT_Y + 390.0)
         page.add_child(ah)
