@@ -73,7 +73,7 @@ func _landmarks(L: float) -> void:
     # stadion bij start/finish, links van het startrechte stuk, hoofdgevel naar de weg
     place_beside(PlsSite.new(), 30.0, -1.0, 135.0, Vector2(110, 110))
     # binnen de ring: SnowWorld met de hal van de weg af, de berg midden in de ring
-    place_beside(LmSnow.new(), L * 0.43, 1.0, 62.0, Vector2(60, 60))
+    place_beside(LmSnow.new(), L * 0.43, 1.0, 76.0, Vector2(80, 60))   # 25-11: bredere voorkant (huisjes t/m hotel)
     # buiten de ring, rechts in rijrichting is binnen; buiten = links (-1)
     # volgorde langs de ring: Kerkrade (stadion, Rolduc), Heerlen (ON I), Landgraaf
     # (Pinkpop, SnowWorld), Brunssum (Gregoriuskerk), Simpelveld (station en stoomtrein),
