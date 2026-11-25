@@ -195,6 +195,9 @@ func _ready() -> void:
 		add_child(net_ghosts)
 		net_ghosts.setup(self)
 	await _prewarm()
+	if Game.mp_active() and net_ghosts != null:
+		world.process_mode = Node.PROCESS_MODE_DISABLED
+		net_ghosts.mp_loaded()
 	await _loaded_step(bar, 1.0)
 	screen.queue_free()
 	loading = false
@@ -647,6 +650,14 @@ func _apply_player_car(c: ArcadeCar) -> void:
 	c.stripe_color = info["stripe"]
 	c.race_number = 1
 	c.offroad = float(info.get("offroad", 0.0))
+	if Game.mp_active() and String(Game.mp["rule"]) == "equal":
+		# samen racen met gelijke auto's: de John Hatchback zonder upgrades, in je eigen kleur
+		var john: Dictionary = Game.Catalog.car("john")
+		c.car_style = String(john["style"])
+		c.stripe_color = john["stripe"]
+		c.offroad = 0.0
+		_apply_stats(c, john)
+		return
 	_apply_stats(c, Game.car_stats(id))
 
 func _apply_stats(c: ArcadeCar, st: Dictionary) -> void:
@@ -688,7 +699,7 @@ func _car() -> void:
 		var s: float = START_S + float(3 - row) * 10.0
 		var l: float = grid_lanes[slot % 2] if slot % 2 == 0 else grid_lanes[1]
 		var xf := Transform3D(r.basis_at(s), r.pos_at(s) + r.right_at(s) * l + Vector3(0, 0.16, 0))
-		if slot == PLAYER_SLOT:
+		if slot == _my_slot():
 			car = ArcadeCar.new()
 			car.name = "PlayerCar"
 			_apply_player_car(car)
@@ -702,7 +713,7 @@ func _car() -> void:
 			car.add_child(CarAudio.new())
 			player_s = s
 			continue
-		if free:
+		if free or Game.mp_active():
 			continue
 		var info: Array = RIVALS[rival_i]
 		rival_i += 1
@@ -728,6 +739,12 @@ func _car() -> void:
 		var own: Array = [float(lanes[0]), -float(lanes[0])] if lanes.size() == 1 else ([l] + lanes.filter(func(x): return absf(float(x) - l) > 0.5))
 		d.setup(self, rc, l, own)
 		rivals.append(d)
+
+# Startplek: normaal PLAYER_SLOT; samen racen: op volgorde van spelernummer vooraan.
+func _my_slot() -> int:
+	if Game.mp_active():
+		return maxi(0, (Game.mp["grid"] as Array).find(Game.net().my_id))
+	return PLAYER_SLOT
 
 # Slipstream: rij je 3 tot 45 m achter een auto die dezelfde kant op gaat (racer,
 # politie of verkeer), dan bouw je slipstream op: dichterbij = sterker. Geldt voor jou en
@@ -836,6 +853,8 @@ func standings() -> Array:
 		rows.append({"name": d.driver_name, "progress": d.progress(), "finished": d.finished, "time": d.finish_time, "lap": d.lap, "start": d.start_progress})
 	rows.append({"name": PLAYER_NAME, "progress": float(player_lap) * level.route.length + player_s,
 		"finished": state == State.FINISHED, "time": elapsed, "lap": player_lap, "start": START_S})
+	if net_ghosts != null:
+		rows.append_array(net_ghosts.rows())
 	rows.sort_custom(func(a, b):
 		if a["finished"] and b["finished"]:
 			return finish_order.find(a["name"]) < finish_order.find(b["name"])
@@ -890,6 +909,9 @@ func _physics_process(_delta: float) -> void:
 		_gap_record(PLAYER_NAME, player_progress())
 		for d in rivals:
 			_gap_record(d.driver_name, d.progress())
+		if net_ghosts != null:
+			for row in net_ghosts.rows():
+				_gap_record(String(row["name"]), float(row["progress"]))
 	var off: bool = float(res[0]) > float(level.road_hw) + OFF_ROAD_MARGIN
 	_slipstream(_delta)
 	car.off_road = off
@@ -915,7 +937,17 @@ func _process(delta: float) -> void:
 		return
 	match state:
 		State.COUNTDOWN:
-			countdown -= delta
+			if Game.mp_active() and net_ghosts != null:
+				var left: float = net_ghosts.countdown_left()
+				if left < 0.0:
+					_big("Wachten op de andere spelers...", 0.0, Color("cfd3d6"))
+					_update_hud()
+					return
+				countdown = left
+				if countdown <= 0.5:
+					world.process_mode = Node.PROCESS_MODE_PAUSABLE
+			else:
+				countdown -= delta
 			if countdown > 0.5:
 				var n: int = ceili(countdown - 0.5)
 				if n != last_beep and n <= 3:
@@ -936,10 +968,11 @@ func _process(delta: float) -> void:
 				return
 			elapsed += delta
 			race_clock += delta
-			time_left -= delta
-			if time_left <= 0.0:
-				time_left = 0.0
-				_time_up()
+			if not Game.mp_active():
+				time_left -= delta
+				if time_left <= 0.0:
+					time_left = 0.0
+					_time_up()
 		State.FINISHED:
 			race_clock += delta
 			result_timer -= delta
@@ -1007,6 +1040,9 @@ func _medal_for(pos: int) -> int:
 	return 4 - pos if pos <= 3 else 0
 
 func _finish() -> void:
+	if Game.mp_active() and net_ghosts != null:
+		_finish_mp()
+		return
 	state = State.FINISHED
 	car.controls_enabled = false
 	finish_order.append(PLAYER_NAME)
@@ -1037,6 +1073,29 @@ func _finish() -> void:
 	buttons.append(["Menu", Game.go_menu])
 	_show_panel(lines, buttons, _results_tabs())
 	_refresh_results()
+
+# Samen racen: plaats onder de spelers, prijzengeld zoals in de single player, geen
+# medailles of records; daarna terug naar de kamer.
+func _finish_mp() -> void:
+	state = State.FINISHED
+	car.controls_enabled = false
+	var pos: int = net_ghosts.finish_position()
+	finish_order.append(PLAYER_NAME)
+	net_ghosts.send_finish(elapsed)
+	Sfx.play(self, "finish" if pos <= 3 else "fail", -3.0)
+	var n: int = (Game.mp["grid"] as Array).size()
+	var lines := [
+		["GEWONNEN!" if pos == 1 else "FINISH!  %de VAN %d" % [pos, n], 42, Color("f3df68") if pos <= 3 else Color.WHITE],
+		["%s   %s   -   samen in kamer %s" % [level.level_title, Game.format_time(elapsed), Game.net().code], 24, Color.WHITE],
+		["Samen racen: prijzengeld wel, medailles en records niet.", 16, Color("cfd3d6")],
+	]
+	lines.append_array(_payout(pos))
+	_show_panel(lines, [["Terug naar de kamer", _back_to_room]], _results_tabs())
+	_refresh_results()
+
+func _back_to_room() -> void:
+	Game.menu_tab = "together"
+	Game.go_menu()
 
 # Twee tabjes onder de titel: de uitslag en het flitsklassement.
 func _results_tabs() -> Control:

@@ -55,7 +55,52 @@ func net() -> Node:
         _net = NetClient.new()
         _net.name = "Net"
         add_child(_net)
+        _net.message.connect(_on_net_message)
+        _net.joined.connect(func(_id, _n):
+            if _net.is_host():
+                send_lobby())
+        _net.welcomed.connect(func(_id, _h, _p):
+            mp = {})
     return _net
+
+# Instellingen van de kamer (kiest de host, fase 2): level en autoregel
+# ("own" = ieder zijn eigen auto uit de garage, "equal" = iedereen de John Hatchback
+# zonder upgrades, in de eigen kleur).
+var lobby := {"level": 0, "rule": "own"}
+# De multiplayer-race die nu loopt (leeg = gewone race): level, regel en de startvolgorde.
+var mp := {}
+
+func mp_active() -> bool:
+    return not mp.is_empty() and in_room()
+
+func send_lobby() -> void:
+    net().send_json({"t": "lobby", "level": int(lobby["level"]), "rule": String(lobby["rule"])})
+
+# Host: iedereen in de kamer start dit level (ook de host zelf).
+func start_mp_race() -> void:
+    if not net().is_host():
+        return
+    var ids: Array = net().players.keys()
+    ids.sort()
+    var msg := {"t": "start", "level": int(lobby["level"]), "rule": String(lobby["rule"]), "grid": ids}
+    net().send_json(msg)
+    _begin_mp(msg)
+
+func _begin_mp(msg: Dictionary) -> void:
+    var grid: Array = []
+    for x in msg.get("grid", []):
+        grid.append(int(x))
+    mp = {"level": int(msg["level"]), "rule": String(msg.get("rule", "own")), "grid": grid}
+    start_level(int(msg["level"]))
+
+func _on_net_message(_from: int, msg: Dictionary) -> void:
+    match String(msg.get("t", "")):
+        "lobby":
+            lobby = {"level": int(msg.get("level", 0)), "rule": String(msg.get("rule", "own"))}
+        "start":
+            # alleen als je bij het startsein in de kamer zat
+            if (msg.get("grid", []) as Array).has(float(net().my_id)) or (msg.get("grid", []) as Array).has(net().my_id):
+                _begin_mp(msg)
 
 func in_room() -> bool:
     return _net != null and _net.is_open() and _net.my_id != 0
@@ -454,6 +499,7 @@ var menu_tab := "race"   # laatst gekozen tab in het menu
 
 func go_menu() -> void:
     get_tree().paused = false
+    mp = {}
     get_tree().change_scene_to_file(MENU_SCENE)
 
 

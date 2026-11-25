@@ -1,6 +1,6 @@
 # Plan: multiplayer (na v1.1)
 
-Stand: 25-11. Fase 0 (server) is klaar; fase 1 (spookauto's) is gebouwd en wacht op de test op de iPhone.
+Stand: 25-11. Fase 0, 1 en 2 zijn gebouwd en met twee Godot-vensters getest; de test op de iPhone samen met de Mac moet nog (live zetten).
 
 ## Jouw keuzes (25-11)
 
@@ -102,6 +102,17 @@ is het waar mogelijk sneller.
    bij 8 spelers. **Nog te doen:** test op de iPhone samen met de Mac (live zetten).
 2. **Lobby en start:** kamer maken en meedoen met code, lobby met hostinstellingen,
    gezamenlijk aftellen, finish en uitslag.
+   **Gebouwd (25-11):** op de tab Samen kiest de host rechts het level (alleen wat hij heeft
+   vrijgespeeld) en de autoregel (eigen garage, of gelijke auto's: iedereen de John
+   Hatchback zonder upgrades in de eigen kleur) en drukt op "Start de race". Iedereen laadt
+   het level; tot de host GO geeft (als iedereen geladen is, of na 25 s) staat de wereld
+   stil met "Wachten op de andere spelers...". Daarna telt iedereen af naar hetzelfde
+   moment op de serverklok, en starten verkeer, verkeerslichten en trein overal tegelijk.
+   Startvolgorde op spelernummer, geen tijdslimiet. De stand en het mini-leaderboard tonen
+   de andere spelers; bij de finish: plaats onder de spelers, prijzengeld zoals in de
+   single player, geen medailles of records, knop "Terug naar de kamer". Getest met twee
+   Godot-vensters via de echte server: GO 34 ms uit elkaar, finishvolgorde en uitslag
+   gelijk op beide schermen.
 3. **AI en wereld:** AI-tegenstanders van de host, flitspaal-berichten, prijzengeld,
    controleren dat het verkeer bij iedereen gelijk loopt.
 4. **Afwerken:** wegvallen en opnieuw verbinden (ook als je op de iPhone even een andere

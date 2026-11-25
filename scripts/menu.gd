@@ -30,6 +30,11 @@ var together_status: Label
 var together_players: Label
 var together_code: LineEdit
 var together_leave: Button
+var lobby_box: Control          # instellingen van de kamer (host kiest, de rest ziet ze)
+var lobby_level: OptionButton
+var lobby_rule: OptionButton
+var lobby_start: Button
+var lobby_info: Label
 var first_level: Button
 var help_box: VBoxContainer
 var controls_help: Label     # Besturing-kolom: tekst hangt af van toetsenbord of aanraken
@@ -712,9 +717,9 @@ func _together_page() -> Control:
     page.add_child(tag_bg)
     tag.position = tag_bg.position + Vector2(8, 1)
     page.add_child(tag)
-    var info := _label("Maak een kamer en geef de code aan je vrienden, of doe mee met hun code. Kies daarna " +
-        "allemaal hetzelfde level bij Racen: je ziet elkaar dan als spookauto. Dit is een eerste test: " +
-        "nog geen gezamenlijke start, geen botsen tussen spelers en geen uitslag samen.", 17, Color("cfd3d6"))
+    var info := _label("Maak een kamer en geef de code aan je vrienden, of doe mee met hun code. De host " +
+        "(wie de kamer maakte) kiest rechts het level en start de race voor iedereen. Nog in de testfase: " +
+        "je rijdt door elkaar heen en er doen nog geen tegenstanders van de computer mee.", 17, Color("cfd3d6"))
     info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     info.custom_minimum_size = Vector2(780, 0)
     info.position = Vector2(LIST_X, Header.CONTENT_Y + 46.0)
@@ -750,6 +755,49 @@ func _together_page() -> Control:
     together_players = _label("", 19, Color("cfd3d6"))
     together_players.position = Vector2(LIST_X, y + 124.0)
     page.add_child(together_players)
+    # lobby rechts: level, autoregel en starten (alleen de host kan kiezen)
+    lobby_box = Control.new()
+    lobby_box.position = Vector2(860, Header.CONTENT_Y)
+    lobby_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    page.add_child(lobby_box)
+    var lh := _label("Race", 26, Color("f3df68"))
+    lobby_box.add_child(lh)
+    var ll := _label("Level", 18, Color("cfd3d6"))
+    ll.position = Vector2(0, 50)
+    lobby_box.add_child(ll)
+    lobby_level = OptionButton.new()
+    lobby_level.position = Vector2(0, 76)
+    lobby_level.custom_minimum_size = Vector2(360, 44)
+    lobby_level.add_theme_font_size_override("font_size", 18)
+    for i in range(Game.LEVELS.size()):
+        lobby_level.add_item(String(Game.LEVELS[i]["name"]), i)
+        lobby_level.set_item_disabled(i, not Game.is_unlocked(i))
+    lobby_level.item_selected.connect(func(idx: int):
+        Game.lobby["level"] = lobby_level.get_item_id(idx)
+        Game.send_lobby())
+    lobby_box.add_child(lobby_level)
+    var rl := _label("Auto's", 18, Color("cfd3d6"))
+    rl.position = Vector2(0, 132)
+    lobby_box.add_child(rl)
+    lobby_rule = OptionButton.new()
+    lobby_rule.position = Vector2(0, 158)
+    lobby_rule.custom_minimum_size = Vector2(360, 44)
+    lobby_rule.add_theme_font_size_override("font_size", 18)
+    lobby_rule.add_item("Eigen garage (met upgrades)", 0)
+    lobby_rule.add_item("Gelijke auto's (John Hatchback)", 1)
+    lobby_rule.item_selected.connect(func(idx: int):
+        Game.lobby["rule"] = "equal" if idx == 1 else "own"
+        Game.send_lobby())
+    lobby_box.add_child(lobby_rule)
+    lobby_start = _card_button("Start de race", func(): Game.start_mp_race())
+    lobby_start.position = Vector2(0, 230)
+    lobby_start.custom_minimum_size = Vector2(360, 56)
+    lobby_box.add_child(lobby_start)
+    lobby_info = _label("", 17, Color("8d96a0"))
+    lobby_info.position = Vector2(0, 296)
+    lobby_info.custom_minimum_size = Vector2(360, 0)
+    lobby_info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    lobby_box.add_child(lobby_info)
     # bijwerken als er iets verandert in de kamer, en elke seconde (ping)
     var net := Game.net()
     net.welcomed.connect(_refresh_together.unbind(3))
@@ -757,6 +805,7 @@ func _together_page() -> Control:
     net.left.connect(_refresh_together.unbind(1))
     net.host_changed.connect(_refresh_together.unbind(1))
     net.disconnected.connect(_refresh_together)
+    net.message.connect(_on_lobby_message)
     net.room_created.connect(_on_room_created)
     net.failed.connect(_on_net_failed)
     var timer := Timer.new()
@@ -767,6 +816,10 @@ func _together_page() -> Control:
             _refresh_together())
     page.add_child(timer)
     return page
+
+func _on_lobby_message(_from: int, msg: Dictionary) -> void:
+    if String(msg.get("t", "")) == "lobby":
+        _refresh_together.call_deferred()
 
 func _on_room_created(code: String) -> void:
     Game.net().join(code, Game.player_name())
@@ -802,6 +855,16 @@ func _refresh_together() -> void:
         return
     var net := Game.net()
     together_leave.visible = Game.in_room()
+    lobby_box.visible = Game.in_room()
+    if Game.in_room():
+        var host: bool = net.is_host()
+        lobby_level.disabled = not host
+        lobby_rule.disabled = not host
+        lobby_start.visible = host
+        lobby_level.select(lobby_level.get_item_index(int(Game.lobby["level"])))
+        lobby_rule.select(1 if String(Game.lobby["rule"]) == "equal" else 0)
+        lobby_info.text = ("Iedereen in de kamer start tegelijk. Je verdient prijzengeld, maar geen medailles." if host
+            else "De host kiest het level en start de race.")
     if not Game.in_room():
         if not together_status.text.ends_with("..."):
             together_status.text = "Niet in een kamer."

@@ -13,7 +13,7 @@ const LOOK_EVERY := 5.0          # uiterlijk (auto, kleur, naam) af en toe opnie
 const PREDICT_MAX := 0.35        # hoogstens zo ver vooruit voorspellen (s)
 const SNAP_DIST := 12.0          # verder ernaast: meteen naar de juiste plek
 const STALE := 2.0               # zo lang niets gehoord: spookauto verbergen
-const VERSION := 1
+const VERSION := 2               # 2: met afgelegde afstand (voor de stand)
 
 var race: Node
 var net: Node
@@ -23,13 +23,20 @@ var _look_t := 0.0
 var _stats_t := 0.0
 var sent := 0
 var status: Label
+# ---- gezamenlijke race (fase 2) ----
+const GO_DELAY_MS := 3500.0      # tussen het startsein en GO: het aftellen 3-2-1
+const LOAD_WAIT := 25.0          # host wacht hoogstens zo lang op trage laders
+var go_at := -1.0                # servertijd (ms) van GO; -1 = nog niet bekend
+var loaded := {}                 # host: wie is klaar met laden
+var _my_loaded_t := -1.0
+var finished := {}               # id -> racetijd (s) van andere spelers die binnen zijn
 
 func setup(r: Node) -> void:
 	race = r
 	net = Game.net()
 	net.state.connect(_on_state)
 	net.message.connect(_on_message)
-	net.joined.connect(func(_id, _n): _send_look())
+	net.joined.connect(_on_joined)
 	net.left.connect(_on_left)
 	_send_look()
 	# statusregel bovenin: kamer, aantal spelers en ping
@@ -51,17 +58,18 @@ func _exit_tree() -> void:
 	for id in ghosts.keys():
 		_drop(id)
 	if net != null:
-		for sig in [net.state, net.message, net.left]:
+		for sig in [net.state, net.message, net.left, net.joined]:
 			for c in sig.get_connections():
 				if c["callable"].get_object() == self:
 					sig.disconnect(c["callable"])
 
 # ---------------------------------------------------------------- versturen
 func _send_look() -> void:
-	var id: String = Game.selected_car()
-	var info: Dictionary = Game.Catalog.car(id)
-	net.send_json({"t": "car", "level": Game.current_index, "style": String(info["style"]),
-		"color": Game.car_paint(id).to_html(false), "stripe": (info["stripe"] as Color).to_html(false),
+	var car = race.car
+	if car == null:
+		return
+	net.send_json({"t": "car", "level": Game.current_index, "style": String(car.car_style),
+		"color": (car.body_color as Color).to_html(false), "stripe": (car.stripe_color as Color).to_html(false),
 		"name": Game.player_name()})
 
 func _send_state() -> void:
@@ -80,13 +88,28 @@ func _send_state() -> void:
 	var tilt: Node3D = car.get("tilt")
 	b.put_float(tilt.rotation.x if tilt != null else 0.0)
 	b.put_float(tilt.rotation.z if tilt != null else 0.0)
+	b.put_float(race.player_progress())
 	net.send_state(b.data_array)
 	sent += 1
 
 # ---------------------------------------------------------------- ontvangen
 func _on_message(from: int, msg: Dictionary) -> void:
-	if String(msg.get("t", "")) != "car":
-		return
+	match String(msg.get("t", "")):
+		"loaded":
+			loaded[from] = true
+			return
+		"go":
+			go_at = float(msg.get("at", -1.0))
+			return
+		"finish":
+			if not finished.has(from):
+				finished[from] = float(msg.get("time", 0.0))
+				race.finish_order.append(name_of(from))
+			return
+		"car":
+			pass
+		_:
+			return
 	var g := _ghost(from)
 	var look := [String(msg.get("style", "hatch")), String(msg.get("color", "c72d28")),
 		String(msg.get("stripe", "f4f4ee")), String(msg.get("name", "Speler"))]
@@ -96,7 +119,7 @@ func _on_message(from: int, msg: Dictionary) -> void:
 		_build(from)
 
 func _on_state(from: int, data: PackedByteArray) -> void:
-	if data.size() < 47 or data[0] != VERSION:
+	if data.size() < 51 or data[0] != VERSION:
 		return
 	var b := StreamPeerBuffer.new()
 	b.data_array = data
@@ -111,6 +134,7 @@ func _on_state(from: int, data: PackedByteArray) -> void:
 	g["yaw"] = b.get_float()
 	g["rx"] = b.get_float()
 	g["rz"] = b.get_float()
+	g["progress"] = b.get_float()
 	# metingen: hoe oud is een bericht als het aankomt, en hoe regelmatig komen ze
 	var age: float = now - t
 	if g["t"] > 0.0:
@@ -125,6 +149,9 @@ func _on_state(from: int, data: PackedByteArray) -> void:
 	g["heard"] = Time.get_ticks_msec()
 	g["got"] += 1
 
+func _on_joined(_id: int, _name: String) -> void:
+	_send_look()
+
 func _on_left(id: int) -> void:
 	_drop(id)
 
@@ -132,7 +159,7 @@ func _ghost(id: int) -> Dictionary:
 	if not ghosts.has(id):
 		ghosts[id] = {"node": null, "look": [], "p": Vector3.ZERO, "v": Vector3.ZERO, "yaw": 0.0,
 			"rx": 0.0, "rz": 0.0, "t": 0.0, "level": -1, "lap": 0, "got": 0, "heard": 0,
-			"gaps": [], "ages": [], "placed": false}
+			"gaps": [], "ages": [], "placed": false, "progress": 0.0}
 	return ghosts[id]
 
 func _drop(id: int) -> void:
@@ -174,6 +201,7 @@ func _build(id: int) -> void:
 func _process(delta: float) -> void:
 	if net == null or not Game.in_room():
 		return
+	_host_go()
 	_send_t -= delta
 	if _send_t <= 0.0:
 		_send_t += SEND_EVERY
@@ -192,7 +220,7 @@ func _process(delta: float) -> void:
 		if n == null or not is_instance_valid(n):
 			continue
 		var fresh: bool = Time.get_ticks_msec() - int(g["heard"]) < int(STALE * 1000.0)
-		n.visible = fresh and int(g["level"]) == Game.current_index and int(g["got"]) > 0
+		n.visible = fresh and int(g["level"]) == Game.current_index and int(g["got"]) > 0 and in_race(id)
 		if not n.visible:
 			continue
 		var ahead: float = clampf((now - float(g["t"])) / 1000.0, 0.0, PREDICT_MAX)
@@ -240,3 +268,64 @@ func stats_text() -> String:
 			(g["look"] as Array)[3] if not (g["look"] as Array).is_empty() else "?", int(g["got"]),
 			int(a / float(ages.size())), int(gm / maxf(1.0, float(gaps.size()))), int(gx)])
 	return " | ".join(parts)
+
+# ---------------------------------------------------------------- gezamenlijke race
+func mp() -> bool:
+	return Game.mp_active()
+
+# Speelt deze speler mee in de race die nu loopt? (Buiten een gezamenlijke race: iedereen.)
+func in_race(id: int) -> bool:
+	return not mp() or (Game.mp["grid"] as Array).has(id)
+
+func name_of(id: int) -> String:
+	if ghosts.has(id) and not (ghosts[id]["look"] as Array).is_empty():
+		return String(ghosts[id]["look"][3])
+	return String(net.players.get(id, "Speler %d" % id))
+
+# Klaar met laden: de host weet dan dat hij (bijna) kan starten.
+func mp_loaded() -> void:
+	_my_loaded_t = Time.get_ticks_msec() / 1000.0
+	loaded[net.my_id] = true
+	net.send_json({"t": "loaded"})
+
+# Host: GO zodra iedereen van de startgrid die nog in de kamer zit geladen is, of na
+# LOAD_WAIT seconden (dan beginnen de trage laders iets later).
+func _host_go() -> void:
+	if not mp() or go_at >= 0.0 or _my_loaded_t < 0.0 or not net.is_host():
+		return
+	var waiting := false
+	for id in Game.mp["grid"]:
+		if net.players.has(int(id)) and not loaded.has(int(id)):
+			waiting = true
+	if waiting and Time.get_ticks_msec() / 1000.0 - _my_loaded_t < LOAD_WAIT:
+		return
+	go_at = net.server_time_ms() + GO_DELAY_MS
+	net.send_json({"t": "go", "at": go_at})
+
+# Seconden tot GO (+0,5 zoals het gewone aftellen), of -1 als het startsein er nog niet is.
+func countdown_left() -> float:
+	if go_at < 0.0:
+		return -1.0
+	return (go_at - net.server_time_ms()) / 1000.0 + 0.5
+
+func send_finish(time: float) -> void:
+	net.send_json({"t": "finish", "time": time})
+
+# De andere spelers in de stand (zelfde vorm als bij de tegenstanders van de computer).
+func rows() -> Array:
+	var out: Array = []
+	if not mp():
+		return out
+	for id in Game.mp["grid"]:
+		var i := int(id)
+		if i == net.my_id:
+			continue
+		var g: Dictionary = _ghost(i)
+		var done: bool = finished.has(i)
+		out.append({"name": name_of(i), "progress": float(g["progress"]), "finished": done,
+			"time": float(finished.get(i, 0.0)), "lap": int(g["lap"]), "start": race.START_S})
+	return out
+
+# Plaats van wie al binnen is: aantal anderen dat eerder finishte + 1.
+func finish_position() -> int:
+	return finished.size() + 1
