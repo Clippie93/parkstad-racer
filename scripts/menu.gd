@@ -877,7 +877,7 @@ func _refresh_together() -> void:
     ids.sort()
     for id in ids:
         lines.append("%d.  %s%s%s" % [id, net.players[id], "  (host)" if id == net.host_id else "",
-            "  ← jij" if id == net.my_id else ""])
+            "  ·  jij" if id == net.my_id else ""])
     together_players.text = "\n".join(lines)
 
 func _label(text: String, size: int, color: Color) -> Label:
