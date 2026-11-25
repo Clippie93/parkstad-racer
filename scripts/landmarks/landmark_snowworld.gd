@@ -247,12 +247,13 @@ func _front() -> void:
 	# rij chalets met leien daken; de grote glazen gevel is de ingang
 	var names := ["FITNESS", "WELLNESS", "BEAUTY"]
 	for k in range(3):
-		_chalet(Vector3(-41.0 + float(k) * 10.4, 0, 30.0), 9.6, 7.0, 6.2, names[k])
+		_chalet(Vector3(-49.0 + float(k) * 10.4, 0, 30.0), 9.6, 7.0, 6.2, names[k])
+	_name_wall(Vector3(-19.1, 0, 30.0), 8.6)
 	_entrance(Vector3(-6.0, 0, 30.0))
 	# plein met rode klinkers en paaltjes
-	Kit.box(self, "Plaza", Vector3(-18.0, 0.05, 40.0), Vector3(54.0, 0.1, 8.0), Color("9a7766"))
-	for k in range(9):
-		Kit.cyl(self, "Bollard", Vector3(-42.0 + float(k) * 5.5, 0.45, 43.5), 0.12, 0.12, 0.9, Color("8e9396"), 8)
+	Kit.box(self, "Plaza", Vector3(-22.0, 0.05, 40.0), Vector3(66.0, 0.1, 8.0), Color("9a7766"))
+	for k in range(11):
+		Kit.cyl(self, "Bollard", Vector3(-51.0 + float(k) * 5.5, 0.45, 43.5), 0.12, 0.12, 0.9, Color("8e9396"), 8)
 	# vlaggen
 	var flags := [Color("d23c3c"), Color("e8ecee"), Color("d23c3c"), Color("1f2a36")]
 	for k in range(4):
@@ -288,8 +289,26 @@ func _chalet(c: Vector3, w: float, wall_h: float, rise: float, text: String) -> 
 	Kit.beam(f, "Barge board", Vector3(w * 0.5 + 0.8, wall_h - 0.1, 0.3), Vector3(0, wall_h + rise + 0.25, 0.3), 0.35, edge)
 	Kit.box(f, "Tie beam", Vector3(0, wall_h + 0.05, 0.22), Vector3(w + 0.4, 0.3, 0.3), Color("9a6b42"))
 
+# Houten gevel tussen de chalets en de glazen ingang, met SNOWWORLD in witte letters
+# (zoals in het echt: de naam staat op het hout, niet op de glasgevel), glazen pui onderaan.
+func _name_wall(c: Vector3, w: float) -> void:
+	var h := 10.5
+	var depth := 16.0
+	Kit.box(self, "Name wall", c + Vector3(0, h * 0.5, -0.6), Vector3(w, h, depth), WOOD, true)
+	Kit.box(self, "Name wall roof", c + Vector3(0, h + 0.15, -0.6), Vector3(w + 0.3, 0.3, depth + 0.3), SLATE)
+	var f := Kit.face(self, c + Vector3(0, 0, depth * 0.5 - 0.6), 0)
+	# horizontale houten delen
+	var y := 3.4
+	while y < h - 0.2:
+		Kit.box(f, "Cladding seam", Vector3(0, y, 0.02), Vector3(w, 0.05, 0.04), Color("74492b"))
+		y += 0.45
+	# glazen pui met deuren onderaan, witte penant rechts
+	Kit.box(f, "Name wall glass", Vector3(-0.4, 1.55, 0.05), Vector3(w - 1.6, 3.1, 0.1), GLASS)
+	Kit.box(f, "Name wall pier", Vector3(w * 0.5 - 0.4, h * 0.5, 0.1), Vector3(0.8, h, 0.3), WHITE)
+	Kit.label(f, "SNOWWORLD", Vector3(-0.4, 6.6, 0.08), 0.0105, Color("f6f6f2"), 96)
+
 # Grote ingang: hoge glazen gevel onder een steil leien dak, houten schoren, rood S-logo,
-# SNOWWORLD in witte letters op het hout ernaast en een rood-witte band onderaan.
+# en een rood-witte band onderaan. De naam staat op de houten gevel ernaast (_name_wall).
 func _entrance(c: Vector3) -> void:
 	var w := 17.0
 	var wall_h := 9.0
@@ -334,9 +353,6 @@ func _entrance(c: Vector3) -> void:
 	Kit.box(f, "Stripe band mask", Vector3(0, 1.9, 0.22), Vector3(w - 1.2, 0.5, 0.05), Color("3a4a52"))
 	# deuren
 	Kit.box(f, "Doors", Vector3(-2.0, 1.15, 0.2), Vector3(4.0, 2.3, 0.06), Color("2a3236"))
-	# houten bord met SNOWWORLD in witte letters onder de bint
-	Kit.box(f, "Name board", Vector3(0, wall_h - 1.3, 0.5), Vector3(11.0, 1.5, 0.2), Color("8a5c38"))
-	Kit.label(f, "SNOWWORLD", Vector3(0, wall_h - 1.3, 0.62), 0.011, Color("f6f6f2"), 96)
 
 # ---------------------------------------------------------------- hotel
 func _hotel() -> void:

@@ -214,14 +214,14 @@ func _rooftop() -> void:
 
 # ---------------------------------------------------------------- achterbouw
 func _annex() -> void:
-    var beige := Color("e3d9c3")
+    var beige := Color("e7e5df")   # licht gestuct, bijna wit (jouw foto van het terras)
     var x0 := -14.0
     var x1 := 8.0
     var z0 := -20.0
     var z1 := -HD
     var h: float = ROOF_Y + 0.8
     Kit.box(self, "Annex", Vector3((x0 + x1) * 0.5, h * 0.5, (z0 + z1) * 0.5), Vector3(x1 - x0, h, z1 - z0), beige, true)
-    Kit.box(self, "Annex coping", Vector3((x0 + x1) * 0.5, h + 0.1, (z0 + z1) * 0.5), Vector3(x1 - x0 + 0.2, 0.2, z1 - z0 + 0.2), Color("cfc5ae"))
+    Kit.box(self, "Annex coping", Vector3((x0 + x1) * 0.5, h + 0.1, (z0 + z1) * 0.5), Vector3(x1 - x0 + 0.2, 0.2, z1 - z0 + 0.2), Color("d4d1ca"))
     Kit.box(self, "Annex top room", Vector3(-1.0, h + 1.6, -16.0), Vector3(10.0, 3.2, 6.0), beige)
     var back := Kit.face(self, Vector3(0, 0, z0), 180)   # lokaal +X = wereld -X
     var dark := Color("3e4a50")
@@ -229,28 +229,63 @@ func _annex() -> void:
     for w in [[9.0, 15.0], [11.5, 15.0], [9.0, 11.0], [11.5, 11.0], [11.0, 6.0]]:
         Kit.box(back, "Annex window", Vector3(w[0], w[1], 0.04), Vector3(1.2, 1.3, 0.1), dark)
         Kit.box(back, "Annex sill", Vector3(w[0], w[1] - 0.72, 0.1), Vector3(1.4, 0.1, 0.2), Color("d2c8b2"))
-    # hoge glazen sleuf met rode letters erachter (rechts op de foto)
-    Kit.box(back, "Tall slot", Vector3(4.0, 13.0, 0.03), Vector3(4.2, 9.0, 0.08), Color("4c6874"), false, Kit.glass_mat(Color("4c6874")))
-    _red_label(back, Vector3(4.0, 16.4, 0.09), 0.012)
+    # hoge sleuf van donkergroen glas met witte letters (rechts op de foto)
+    Kit.box(back, "Tall slot", Vector3(4.0, 13.0, 0.03), Vector3(4.2, 9.0, 0.08), Color("2c4a40"), false, Kit.glass_mat(Color("2c4a40")))
+    Kit.label(back, "SCHUNCK", Vector3(4.0, 16.4, 0.09), 0.0085, Color("f2f2ee"), 100)
     for i in range(3):
         Kit.box(back, "Slot mullion", Vector3(1.9 + float(i) * 2.1, 13.0, 0.09), Vector3(0.08, 9.0, 0.06), frame_col)
-    # ingang met trap en palmen
-    Kit.box(back, "Entrance glass", Vector3(-3.0, 1.7, 0.04), Vector3(6.0, 3.4, 0.08), dark)
-    Kit.box(back, "Entrance step", Vector3(-3.0, 0.12, 0.8), Vector3(7.0, 0.24, 1.6), Color("bdb7ad"))
-    for px in [-7.2, 1.2]:
-        _palm(back, Vector3(px, 0, 1.6))
+    # terras naar jouw foto (25-11): verhoogd plateau over de hele achtergevel, brede trap
+    # naar het plein (rechts), glazen balustrade (links), palmen in witte bakken en parasols
+    var stone := Color("d6d3cc")
+    var tz := 4.5          # diepte van het terras
+    var th := 1.4          # hoogte van het terras
+    Kit.box(back, "Terrace", Vector3(0.25, th * 0.5, tz * 0.5), Vector3(16.5, th, tz), stone)
+    _collider("Terrace body", Vector3(-0.25, th * 0.5, z0 - tz * 0.5), Vector3(16.5, th, tz))
+    for k in range(5):
+        var sh: float = th * float(5 - k) / 5.0
+        Kit.box(back, "Terrace step", Vector3(3.25, sh * 0.5, tz + 0.3 + float(k) * 0.6), Vector3(10.5, sh, 0.6), stone)
+        Kit.box(back, "Step nose", Vector3(3.25, sh + 0.005, tz + 0.02 + float(k) * 0.6), Vector3(10.5, 0.01, 0.06), Color("a9a59c"))
+    # balustrade: glas tussen stalen staanders langs de voorkant links en de zijkant
+    var rail_glass := Kit.glass_mat(Color("a9c3cc"))
+    Kit.box(back, "Terrace glass rail", Vector3(-5.0, th + 0.5, tz - 0.05), Vector3(6.0, 1.0, 0.05), Color.WHITE, false, rail_glass)
+    Kit.box(back, "Terrace glass rail", Vector3(-8.0, th + 0.5, tz * 0.5), Vector3(0.05, 1.0, tz), Color.WHITE, false, rail_glass)
+    Kit.box(back, "Terrace handrail", Vector3(-5.0, th + 1.02, tz - 0.05), Vector3(6.0, 0.06, 0.08), frame_col)
+    Kit.box(back, "Terrace handrail", Vector3(-8.0, th + 1.02, tz * 0.5), Vector3(0.08, 0.06, tz), frame_col)
+    for rx in [-8.0, -5.0, -2.0]:
+        Kit.box(back, "Rail post", Vector3(rx, th + 0.5, tz - 0.05), Vector3(0.07, 1.05, 0.07), frame_col)
+    # brede donkere glaspui achter het terras
+    Kit.box(back, "Terrace glass front", Vector3(-1.5, th + 1.8, 0.04), Vector3(11.0, 3.6, 0.08), dark, false, Kit.glass_mat(dark))
+    # palmen in witte bakken op de voorrand, parasols met tafeltjes erachter
+    for px in [-6.5, -2.6, 1.0, 5.0, 8.0]:
+        _palm(back, Vector3(px, th, tz - 0.8), 1.45)
+    for ux in [-5.0, -0.8, 3.4]:
+        Kit.cyl(back, "Parasol pole", Vector3(ux, th + 1.25, 2.0), 0.04, 0.04, 2.5, Color("5a524a"), 6)
+        Kit.cyl(back, "Parasol", Vector3(ux, th + 2.45, 2.0), 1.7, 0.08, 0.5, Color("7d6e5c"), 10)
+        Kit.cyl(back, "Table", Vector3(ux, th + 0.72, 2.0), 0.45, 0.45, 0.05, Color("2e2b28"), 10)
+    # glazen toren met pictogrammen aan de linkerkant (muziek, film, dans, museum, boeken)
+    var tower_glass := Kit.glass_mat(Color("6f8f99"))
+    Kit.box(back, "Pictogram tower", Vector3(-9.6, ROOF_Y * 0.5 + 0.6, 0.6), Vector3(3.0, ROOF_Y + 1.2, 3.0), Color.WHITE, false, tower_glass)
+    for i in range(6):
+        var py: float = 5.0 + float(i) * 2.4
+        Kit.box(back, "Pictogram", Vector3(-9.6, py, 2.12), Vector3(1.7, 1.7, 0.04), Color("eef0ee"))
+        Kit.box(back, "Pictogram icon", Vector3(-9.6, py, 2.15), Vector3(0.5 + 0.15 * float(i % 3), 0.9 - 0.12 * float(i % 2), 0.02), Color("4a5458"))
+    for ty in [3.6, 7.4, 11.2, 15.0, 18.8]:
+        Kit.box(back, "Tower floor line", Vector3(-9.6, ty, 2.11), Vector3(3.02, 0.12, 0.02), frame_col)
     # stalen dakframe linksboven
     for fx in [-7.5, -4.5, -1.5]:
         Kit.box(back, "Roof frame post", Vector3(fx, h + 1.5, -1.0), Vector3(0.12, 3.0, 0.12), frame_col)
     Kit.box(back, "Roof frame rail", Vector3(-4.5, h + 3.0, -1.0), Vector3(6.1, 0.12, 0.12), frame_col)
 
-func _palm(parent: Node3D, pos: Vector3) -> void:
-    Kit.box(parent, "Planter", pos + Vector3(0, 0.45, 0), Vector3(1.1, 0.9, 1.1), Color("f0eee8"))
-    Kit.cyl(parent, "Palm trunk", pos + Vector3(0, 1.4, 0), 0.16, 0.12, 1.2, Color("6b5638"), 6)
-    for a in range(6):
-        var ang: float = float(a) * TAU / 6.0
-        var tip := pos + Vector3(cos(ang) * 1.1, 2.2, sin(ang) * 1.1)
-        Kit.beam(parent, "Palm leaf", pos + Vector3(0, 2.0, 0), tip, 0.18, Color("4f7d3a"))
+func _palm(parent: Node3D, pos: Vector3, k: float = 1.0) -> void:
+    Kit.box(parent, "Planter", pos + Vector3(0, 0.45, 0) * k, Vector3(1.1, 0.9, 1.1) * k, Color("f0eee8"))
+    Kit.cyl(parent, "Palm trunk", pos + Vector3(0, 1.6, 0) * k, 0.16 * k, 0.11 * k, 1.5 * k, Color("6b5638"), 6)
+    var crown: Vector3 = pos + Vector3(0, 2.35, 0) * k
+    # bovenste bladeren schuin omhoog, onderste ring hangt wat naar beneden
+    for a in range(7):
+        var ang: float = float(a) * TAU / 7.0
+        Kit.beam(parent, "Palm leaf", crown, crown + Vector3(cos(ang) * 1.0, 0.55, sin(ang) * 1.0) * k, 0.16 * k, Color("4f7d3a"))
+        var ang2: float = ang + TAU / 14.0
+        Kit.beam(parent, "Palm leaf", crown, crown + Vector3(cos(ang2) * 1.25, -0.25, sin(ang2) * 1.25) * k, 0.16 * k, Color("3f6c30"))
 
 # ---------------------------------------------------------------- wit trappenhuisblok
 func _link_block() -> void:

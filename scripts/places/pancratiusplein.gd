@@ -14,6 +14,8 @@ func _ready() -> void:
     Kit.box(self, "Square paving", Vector3(0, 0.11, 0), Vector3(94, 0.18, 72), SIDEWALK)
     Kit.box(self, "Square paving east", Vector3(51, 0.11, 0), Vector3(8, 0.18, 72), SIDEWALK)
     Kit.box(self, "Driveway", Vector3(0, 0.225, 0), Vector3(13, 0.05, 72), ROAD_GRAY)
+    # bestrating voor de trap van het Glaspaleis-terras (achterkant)
+    Kit.box(self, "Square paving terrace", Vector3(36, 0.11, -40), Vector3(26, 0.18, 8), SIDEWALK)
     for z in [-34.0, -26.0, -18.0]:
         Kit.box(self, "Paving band", Vector3(0, 0.235, z), Vector3(89, 0.025, 0.38), Color("c6bdb0"))
     var kerk: Node3D = LmKerk.new()
