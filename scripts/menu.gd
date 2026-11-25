@@ -1,0 +1,654 @@
+extends Control
+# Hoofdmenu: één plaatsnaambord per gemeente, de Parkstad Finale als laatste. Een tik op
+# een bord vraagt: racen of vrij rijden. Groot genoeg om op een telefoon te tikken.
+# Verborgen testmodus: vijf keer snel op T drukken of op de titel PARKSTAD RACER tikken
+# zet alle levels vrij (of weer dicht).
+
+const Fit = preload("res://scripts/screen_fit.gd")
+const MenuScroll = preload("res://scripts/menu_scroll.gd")
+const Sfx = preload("res://scripts/sfx.gd")
+const TITLE_RECT := Rect2(50, 14, 420, 70)   # titel in de kop (ontwerpcoördinaten)
+const Header = preload("res://scripts/menu_header.gd")
+
+const LIST_X := 60.0
+const LIST_W := 1160.0
+const ROW_H := 44.0
+const SIGN_W := 270.0
+const SIGN_H := 160.0
+const SIGN_BLUE := Color("1d4f9c")
+
+var t_presses: Array[float] = []
+var toast: Label
+var tabs: Array = []
+var race_page: Control
+var help_page: Control
+var settings_page: Control
+var profile_page: Control
+var first_level: Button
+var help_box: VBoxContainer
+var scroll: Node
+
+func _ready() -> void:
+    Fit.center(self)
+    MenuScroll.attach(self)
+    scroll = get_node_or_null("MenuScroll")
+    tabs = Header.build(self, Game.menu_tab, _on_tab)
+    race_page = _race_page()
+    add_child(race_page)
+    help_page = _help_page()
+    add_child(help_page)
+    settings_page = _settings_page()
+    add_child(settings_page)
+    profile_page = _profile_page()
+    add_child(profile_page)
+    Game.play_menu_music()
+    toast = _label("", 18, Color("f3df68"))
+    toast.position = Vector2(LIST_X, 670)
+    add_child(toast)
+    _show(Game.menu_tab if Game.menu_tab != "garage" else "race")
+
+func _on_tab(id: String) -> void:
+    if id == "garage":
+        Game.garage()
+    else:
+        _show(id)
+
+func _show(id: String) -> void:
+    Game.menu_tab = id
+    Header.set_active(tabs, id)
+    race_page.visible = id == "race"
+    help_page.visible = id == "help"
+    settings_page.visible = id == "settings"
+    profile_page.visible = id == "profile"
+    if id == "race" and first_level != null:
+        first_level.call_deferred("grab_focus")
+    if scroll != null:
+        scroll.set_content_height(720.0)
+        if id == "help":
+            _fit_help.call_deferred()
+
+# De uitleg kan langer zijn dan het scherm: dan scrollt hij (zodra de tekst is opgemaakt).
+func _fit_help() -> void:
+    await get_tree().process_frame
+    if Game.menu_tab == "help":
+        scroll.set_content_height(help_box.position.y + help_box.get_combined_minimum_size().y + 30.0)
+
+func _race_page() -> Control:
+    var page := Control.new()
+    page.set_anchors_preset(Control.PRESET_FULL_RECT)
+    page.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    var gap: float = (LIST_W - 4.0 * SIGN_W) / 3.0
+    for i in range(Game.LEVELS.size()):
+        var x: float = LIST_X + float(i % 4) * (SIGN_W + gap)
+        var y: float = Header.CONTENT_Y + float(i / 4) * (SIGN_H + 72.0)
+        var btn := _city_sign(i, Vector2(x, y))
+        page.add_child(btn)
+        page.add_child(_sign_status(i, Vector2(x, y + SIGN_H + 8.0)))
+        if first_level == null and not btn.disabled:
+            first_level = btn
+    var hint := _label("Tik op een stad om te racen of vrij te rijden. Haal de top 3 om de volgende stad vrij te spelen.   Moeilijkheid: %s (wijzig bij Instellingen)" % DIFF_SHORT[Game.difficulty()], 16, Color("8d96a0"))
+    hint.position = Vector2(LIST_X + 4, Header.CONTENT_Y + 2.0 * (SIGN_H + 72.0) + 6.0)
+    page.add_child(hint)
+    if Game.test_mode():
+        var tag := _label("TESTMODUS", 16, Color("ef5a4f"))
+        tag.position = Vector2(LIST_X + LIST_W - 100, hint.position.y + 24.0)
+        page.add_child(tag)
+    return page
+
+# Plaatsnaambord (blauw met witte rand en letters, zoals bij de bebouwde kom).
+func _city_sign(i: int, at: Vector2) -> Button:
+    var info: Dictionary = Game.LEVELS[i]
+    var open: bool = Game.is_built(i) and Game.is_unlocked(i)
+    var finale: bool = i == Game.LEVELS.size() - 1
+    var btn := Button.new()
+    btn.position = at
+    btn.size = Vector2(SIGN_W, SIGN_H)
+    btn.disabled = not open
+    btn.focus_mode = Control.FOCUS_ALL
+    var bg: Color = SIGN_BLUE if open else Color("3c4450")
+    var states := {"normal": bg, "hover": bg.lightened(0.12), "pressed": bg.darkened(0.15), "disabled": bg, "focus": bg}
+    for st in states:
+        var sb := StyleBoxFlat.new()
+        sb.bg_color = states[st]
+        sb.set_corner_radius_all(14)
+        sb.set_border_width_all(7 if st != "focus" else 9)
+        sb.border_color = Color.WHITE if open else Color("7d8691")
+        if st == "focus" or st == "hover":
+            sb.border_color = Color("f3df68")
+        if st == "focus":
+            sb.draw_center = false
+        btn.add_theme_stylebox_override(st, sb)
+    var box := VBoxContainer.new()
+    box.set_anchors_preset(Control.PRESET_FULL_RECT)
+    box.alignment = BoxContainer.ALIGNMENT_CENTER
+    box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    btn.add_child(box)
+    var name_l := _label("Parkstad" if finale else String(info["name"]), 44, Color.WHITE if open else Color("9aa3ad"))
+    name_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    box.add_child(name_l)
+    if finale:
+        var sub := _label("Buitenring  -  finale", 20, Color.WHITE if open else Color("9aa3ad"))
+        sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        box.add_child(sub)
+    if open:
+        btn.pressed.connect(func():
+            Sfx.play(self, "click", -8.0)
+            _choose_mode(i))
+    return btn
+
+# Onder het bord: beste tijd en medaille op de gekozen moeilijkheid (of waarom de stad nog
+# dicht is), en daaronder per moeilijkheid in de kleur van de medaille die je daar hebt.
+const DIFF_SHORT := ["Makkelijk", "Normaal", "Moeilijk"]
+func _sign_status(i: int, at: Vector2) -> Control:
+    var box := VBoxContainer.new()
+    box.position = at
+    box.size = Vector2(SIGN_W, 0)
+    box.add_theme_constant_override("separation", 0)
+    box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    var text := ""
+    var color := Color("8d96a0")
+    var open := false
+    if not Game.is_built(i):
+        text = "binnenkort"
+    elif not Game.is_unlocked(i):
+        text = "haal eerst %s" % Game.LEVELS[i - 1]["name"]
+    else:
+        open = true
+        var id := String(Game.LEVELS[i]["id"])
+        var best: float = Game.best_time(id)
+        if best > 0.0:
+            var medal: int = Game.best_medal(id)
+            text = "%s   %s" % [Game.format_time(best), Game.MEDAL_NAMES[medal]]
+            color = Game.MEDAL_COLORS[medal]
+        else:
+            text = "nog niet gereden"
+            color = Color("cfd3d6")
+    var l := _label(text, 20, color)
+    l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    l.custom_minimum_size = Vector2(SIGN_W, 0)
+    box.add_child(l)
+    if open:
+        var row := HBoxContainer.new()
+        row.alignment = BoxContainer.ALIGNMENT_CENTER
+        row.add_theme_constant_override("separation", 12)
+        row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        var id := String(Game.LEVELS[i]["id"])
+        for d in range(3):
+            var m: int = Game.best_medal(id, d)
+            var dl := _label(DIFF_SHORT[d], 14, Game.MEDAL_COLORS[m] if m > 0 else Color("4f5966"))
+            if d == Game.difficulty():
+                dl.text = "[" + dl.text + "]"
+            row.add_child(dl)
+        box.add_child(row)
+    return box
+
+# Keuzescherm na een tik op een stad: racen of vrij rijden.
+var mode_layer: Control
+func _choose_mode(i: int) -> void:
+    _close_mode()
+    var info: Dictionary = Game.LEVELS[i]
+    mode_layer = Control.new()
+    mode_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
+    add_child(mode_layer)
+    var dim := ColorRect.new()
+    dim.color = Color(0.03, 0.05, 0.08, 0.82)
+    dim.position = Vector2(-3000, -3000)
+    dim.size = Vector2(7280, 6720)
+    dim.gui_input.connect(func(e):
+        if e is InputEventMouseButton and e.pressed:
+            _close_mode())
+    mode_layer.add_child(dim)
+    var title := _label(String(info["name"]).to_upper(), 48, Color("f3df68"))
+    title.position = Vector2(0, 180)
+    title.size = Vector2(1280, 60)
+    title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    mode_layer.add_child(title)
+    var race := _mode_button("RACEN", "Tegen 7 tegenstanders, met\ncheckpoints, klok en prijzengeld", Vector2(230, 270), Color("b8322c"))
+    race.pressed.connect(func(): Game.start_level(i, false))
+    mode_layer.add_child(race)
+    var ride := _mode_button("VRIJ RIJDEN", "Rustig langs de bezienswaardigheden,\nzonder klok of tegenstanders", Vector2(660, 270), Color("2e7d4f"))
+    ride.pressed.connect(func(): Game.start_level(i, true))
+    mode_layer.add_child(ride)
+    var back := Button.new()
+    back.text = "Terug"
+    back.add_theme_font_size_override("font_size", 24)
+    back.position = Vector2(540, 520)
+    back.size = Vector2(200, 56)
+    back.pressed.connect(_close_mode)
+    mode_layer.add_child(back)
+    race.focus_neighbor_right = ride.get_path()
+    ride.focus_neighbor_left = race.get_path()
+    race.call_deferred("grab_focus")
+
+func _mode_button(title: String, text: String, at: Vector2, color: Color) -> Button:
+    var b := Button.new()
+    b.position = at
+    b.size = Vector2(390, 220)
+    for st in ["normal", "hover", "pressed", "focus"]:
+        var sb := StyleBoxFlat.new()
+        sb.bg_color = color.lightened(0.1) if st == "hover" else (color.darkened(0.15) if st == "pressed" else color)
+        sb.set_corner_radius_all(14)
+        sb.set_border_width_all(6)
+        sb.border_color = Color("f3df68") if st in ["focus", "hover"] else Color(1, 1, 1, 0.7)
+        if st == "focus":
+            sb.draw_center = false
+        b.add_theme_stylebox_override(st, sb)
+    var box := VBoxContainer.new()
+    box.set_anchors_preset(Control.PRESET_FULL_RECT)
+    box.alignment = BoxContainer.ALIGNMENT_CENTER
+    box.add_theme_constant_override("separation", 14)
+    box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    b.add_child(box)
+    var t := _label(title, 42, Color.WHITE)
+    t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    box.add_child(t)
+    var d := _label(text, 19, Color(1, 1, 1, 0.85))
+    d.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    box.add_child(d)
+    return b
+
+func _close_mode() -> void:
+    if mode_layer != null:
+        mode_layer.queue_free()
+        mode_layer = null
+        if first_level != null:
+            first_level.grab_focus()
+
+func _profile_page() -> Control:
+    var page := Control.new()
+    page.set_anchors_preset(Control.PRESET_FULL_RECT)
+    page.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    var y: float = Header.CONTENT_Y
+    for i in range(1, Game.SLOTS + 1):
+        page.add_child(_slot_card(i, y))
+        y += 124.0
+    var note := _label("Elk profiel heeft eigen geld, auto's, upgrades, records en medailles. Geluidsinstellingen gelden voor alle profielen.", 15, Color("8d96a0"))
+    note.position = Vector2(LIST_X + 4, y + 4)
+    page.add_child(note)
+    return page
+
+func _slot_card(i: int, y: float) -> Control:
+    var active: bool = Game.slot_exists(i) and i == Game.slot
+    var card := Panel.new()
+    card.position = Vector2(LIST_X, y)
+    card.size = Vector2(LIST_W, 112)
+    var sb := StyleBoxFlat.new()
+    sb.bg_color = Color("1a2230")
+    sb.set_corner_radius_all(8)
+    if active:
+        sb.border_color = Color("f3df68")
+        sb.set_border_width_all(3)
+    card.add_theme_stylebox_override("panel", sb)
+    var buttons := HBoxContainer.new()
+    buttons.position = Vector2(LIST_W - 520, 34)
+    buttons.size = Vector2(500, 44)
+    buttons.alignment = BoxContainer.ALIGNMENT_END
+    buttons.add_theme_constant_override("separation", 10)
+    card.add_child(buttons)
+    if not Game.slot_exists(i):
+        var empty := _label("%d.  Leeg" % i, 26, Color("6f7880"))
+        empty.position = Vector2(22, 36)
+        card.add_child(empty)
+        buttons.add_child(_card_button("Nieuw profiel", func(): _ask_name(i, true)))
+        return card
+    var info: Dictionary = Game.slot_info(i)
+    var head := HBoxContainer.new()
+    head.position = Vector2(22, 14)
+    head.add_theme_constant_override("separation", 14)
+    card.add_child(head)
+    head.add_child(_label("%d.  %s" % [i, info["name"]], 26, Color("f3df68") if active else Color.WHITE))
+    if active:
+        var tag := _label("IN GEBRUIK", 15, Color("101722"))
+        var tsb := StyleBoxFlat.new()
+        tsb.bg_color = Color("f3df68")
+        tsb.set_corner_radius_all(4)
+        tsb.content_margin_left = 8
+        tsb.content_margin_right = 8
+        tag.add_theme_stylebox_override("normal", tsb)
+        tag.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+        head.add_child(tag)
+    var line := "%s     %d goud   %d zilver   %d brons" % [Game.format_money(int(info["money"])), info["gold"], info["silver"], info["bronze"]]
+    var l2 := _label(line, 18, Color("cfd3d6"))
+    l2.position = Vector2(26, 52)
+    card.add_child(l2)
+    var l3 := _label("Laatst gespeeld: %s" % _date(int(info["last"])), 15, Color("8d96a0"))
+    l3.position = Vector2(26, 80)
+    card.add_child(l3)
+    if not active:
+        buttons.add_child(_card_button("Kies", func():
+            Game.select_slot(i)
+            _reload()))
+    buttons.add_child(_card_button("Hernoem", func(): _ask_name(i, false)))
+    buttons.add_child(_card_button("Wis", func(): _ask_delete(i)))
+    return card
+
+func _card_button(text: String, action: Callable) -> Button:
+    var b := Button.new()
+    b.text = text
+    b.custom_minimum_size = Vector2(130, 44)
+    b.add_theme_font_size_override("font_size", 18)
+    b.pressed.connect(func():
+        Sfx.play(self, "click", -8.0)
+        action.call())
+    return b
+
+func _date(unix: int) -> String:
+    if unix <= 0:
+        return "-"
+    var bias: int = int(Time.get_time_zone_from_system().get("bias", 0))
+    var d: Dictionary = Time.get_datetime_dict_from_unix_time(unix + bias * 60)
+    return "%02d-%02d-%d  %02d:%02d" % [d["day"], d["month"], d["year"], d["hour"], d["minute"]]
+
+func _reload() -> void:
+    Game.menu_tab = "profile"
+    get_tree().reload_current_scene()
+
+# Naam vragen voor een nieuw profiel (is_new) of om te hernoemen.
+func _ask_name(i: int, is_new: bool) -> void:
+    # Op de telefoon (web) het venstertje van de browser zelf: dan komt het toetsenbord
+    # gewoon tevoorschijn (in het spel zelf deed iOS dat niet).
+    if OS.has_feature("web") and DisplayServer.is_touchscreen_available():
+        var ask: String = "Naam voor het nieuwe profiel (max. 16 tekens):" if is_new else "Nieuwe naam voor dit profiel (max. 16 tekens):"
+        var cur: String = "" if is_new else Game.profile_name(i)
+        var r = JavaScriptBridge.eval("prompt(%s, %s)" % [JSON.stringify(ask), JSON.stringify(cur)], true)
+        if r == null:
+            return
+        var nm: String = String(r).strip_edges().left(16)
+        if is_new:
+            Game.create_slot(i, nm)
+        else:
+            Game.rename_slot(i, nm)
+        _reload()
+        return
+    var dlg := ConfirmationDialog.new()
+    dlg.title = "Nieuw profiel" if is_new else "Profiel hernoemen"
+    dlg.ok_button_text = "Maak profiel" if is_new else "Opslaan"
+    dlg.cancel_button_text = "Annuleren"
+    var box := VBoxContainer.new()
+    box.add_child(_label("Naam (max. 16 tekens):", 16, Color.WHITE))
+    var edit := LineEdit.new()
+    edit.max_length = 16
+    edit.custom_minimum_size = Vector2(320, 36)
+    edit.text = "" if is_new else Game.profile_name(i)
+    edit.placeholder_text = "Speler %d" % i
+    box.add_child(edit)
+    dlg.add_child(box)
+    dlg.register_text_enter(edit)
+    var ok := func():
+        if is_new:
+            Game.create_slot(i, edit.text)
+        else:
+            Game.rename_slot(i, edit.text)
+        _reload()
+    dlg.confirmed.connect(ok)
+    dlg.canceled.connect(dlg.queue_free)
+    add_child(dlg)
+    dlg.popup_centered()
+    edit.grab_focus()
+    edit.select_all()
+
+func _ask_delete(i: int) -> void:
+    var dlg := ConfirmationDialog.new()
+    dlg.title = "Profiel wissen"
+    dlg.dialog_text = "Weet je zeker dat je profiel \"%s\" wilt wissen?\nAl het geld, de auto's, records en medailles van dit profiel\nworden verwijderd. Dit kan niet ongedaan worden gemaakt." % Game.profile_name(i)
+    dlg.ok_button_text = "Wissen"
+    dlg.cancel_button_text = "Annuleren"
+    dlg.confirmed.connect(func():
+        Game.delete_slot(i)
+        _reload())
+    dlg.canceled.connect(dlg.queue_free)
+    add_child(dlg)
+    dlg.popup_centered()
+    dlg.get_cancel_button().grab_focus()   # Enter = annuleren, niet per ongeluk wissen
+
+func _settings_page() -> Control:
+    var page := Control.new()
+    page.set_anchors_preset(Control.PRESET_FULL_RECT)
+    page.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    var head := _label("Geluid", 26, Color("f3df68"))
+    head.position = Vector2(LIST_X, Header.CONTENT_Y)
+    page.add_child(head)
+    var y: float = Header.CONTENT_Y + 56.0
+    for bus in Game.AUDIO_BUSES:
+        var l := _label(String(Game.AUDIO_BUSES[bus]), 20, Color("cfd3d6"))
+        l.position = Vector2(LIST_X, y)
+        page.add_child(l)
+        var pct := _label("", 20, Color.WHITE)
+        pct.position = Vector2(LIST_X + 640, y)
+        page.add_child(pct)
+        var sl := HSlider.new()
+        sl.position = Vector2(LIST_X + 220, y + 4)
+        sl.size = Vector2(400, 24)
+        sl.min_value = 0.0
+        sl.max_value = 1.0
+        sl.step = 0.05
+        sl.value = Game.volume(bus)
+        pct.text = "%d%%" % roundi(sl.value * 100.0)
+        var b: String = String(bus)
+        sl.value_changed.connect(func(v: float):
+            Game.set_volume(b, v)
+            pct.text = "%d%%" % roundi(v * 100.0)
+            if b == "SFX":
+                Sfx.play(self, "click", -4.0))
+        page.add_child(sl)
+        y += 52.0
+    var head2 := _label("Besturing", 26, Color("f3df68"))
+    head2.position = Vector2(LIST_X, y + 30.0)
+    page.add_child(head2)
+    var tl := _label("Aanraakknoppen", 20, Color("cfd3d6"))
+    tl.position = Vector2(LIST_X, y + 86.0)
+    page.add_child(tl)
+    var opt := OptionButton.new()
+    opt.position = Vector2(LIST_X + 220, y + 80.0)
+    opt.custom_minimum_size = Vector2(520, 40)
+    opt.add_theme_font_size_override("font_size", 18)
+    var modes := [["auto", "Automatisch (alleen op touchscreen)"], ["on", "Altijd aan"], ["off", "Uit"]]
+    for m in modes:
+        opt.add_item(String(m[1]))
+        if m[0] == Game.touch_mode():
+            opt.select(opt.item_count - 1)
+    opt.item_selected.connect(func(idx: int): Game.set_touch_mode(String(modes[idx][0])))
+    page.add_child(opt)
+    var sl2 := _label("Soort besturing", 20, Color("cfd3d6"))
+    sl2.position = Vector2(LIST_X, y + 138.0)
+    page.add_child(sl2)
+    var opt2 := OptionButton.new()
+    opt2.position = Vector2(LIST_X + 220, y + 132.0)
+    opt2.custom_minimum_size = Vector2(520, 40)
+    opt2.add_theme_font_size_override("font_size", 18)
+    var schemes := [["tap", "Pijltjes: links sturen, rechts remmen (auto-gas)"], ["tilt", "Kantelen: telefoon als stuur (auto-gas)"], ["stick", "Joystick + knoppen"]]
+    for m in schemes:
+        opt2.add_item(String(m[1]))
+        if m[0] == Game.touch_scheme():
+            opt2.select(opt2.item_count - 1)
+    opt2.item_selected.connect(func(idx: int): Game.set_touch_scheme(String(schemes[idx][0])))
+    page.add_child(opt2)
+    var inv := CheckBox.new()
+    inv.text = "Kantelen omkeren (als sturen de verkeerde kant op gaat)"
+    inv.add_theme_font_size_override("font_size", 17)
+    inv.position = Vector2(LIST_X + 220, y + 184.0)
+    _checkbox_look(inv)
+    inv.button_pressed = Game.tilt_inverted()
+    inv.toggled.connect(func(on: bool): Game.set_tilt_inverted(on))
+    page.add_child(inv)
+    var dl := _label("Moeilijkheid", 20, Color("cfd3d6"))
+    dl.position = Vector2(LIST_X, y + 242.0)
+    page.add_child(dl)
+    var opt3 := OptionButton.new()
+    opt3.position = Vector2(LIST_X + 220, y + 236.0)
+    opt3.custom_minimum_size = Vector2(520, 40)
+    opt3.add_theme_font_size_override("font_size", 18)
+    var diffs := ["Makkelijk: tragere tegenstanders, meer tijd", "Normaal", "Moeilijk: snellere tegenstanders, minder tijd"]
+    for d in diffs:
+        opt3.add_item(d)
+    opt3.select(Game.difficulty())
+    opt3.item_selected.connect(func(idx: int): Game.set_difficulty(idx))
+    page.add_child(opt3)
+    var pol := CheckBox.new()
+    pol.text = "Politie inschakelen"
+    pol.add_theme_font_size_override("font_size", 17)
+    _checkbox_look(pol)
+    pol.position = Vector2(LIST_X + 220, y + 284.0)
+    pol.button_pressed = Game.police_enabled()
+    pol.toggled.connect(func(on: bool): Game.set_police_enabled(on))
+    page.add_child(pol)
+    # Beeld: rechts naast Geluid (daar is ruimte)
+    var gh := _label("Beeld", 26, Color("f3df68"))
+    gh.position = Vector2(860, Header.CONTENT_Y)
+    page.add_child(gh)
+    var opt4 := OptionButton.new()
+    opt4.position = Vector2(860, Header.CONTENT_Y + 50.0)
+    opt4.custom_minimum_size = Vector2(360, 40)
+    opt4.add_theme_font_size_override("font_size", 18)
+    var gfx := [["auto", "Automatisch"], ["high", "Mooi"], ["low", "Snel"]]
+    for m in gfx:
+        opt4.add_item(String(m[1]))
+        if m[0] == Game.graphics_mode():
+            opt4.select(opt4.item_count - 1)
+    opt4.item_selected.connect(func(idx: int): Game.set_graphics_mode(String(gfx[idx][0])))
+    page.add_child(opt4)
+    var gt := _label("Snel: lagere resolutie, minder schaduw\nen detail in de verte. Automatisch kiest\nSnel op telefoon en tablet.", 16, Color("9aa3ab"))
+    gt.position = Vector2(860, Header.CONTENT_Y + 100.0)
+    page.add_child(gt)
+    # camerastandpunt (ook te wisselen in het pauzemenu)
+    var ch := _label("Camera", 20, Color("cfd3d6"))
+    ch.position = Vector2(860, Header.CONTENT_Y + 190.0)
+    page.add_child(ch)
+    var opt5 := OptionButton.new()
+    opt5.position = Vector2(860, Header.CONTENT_Y + 222.0)
+    opt5.custom_minimum_size = Vector2(360, 40)
+    opt5.add_theme_font_size_override("font_size", 18)
+    for c in Game.CAMERA_VIEWS:
+        opt5.add_item(String(c[1]))
+        if c[0] == Game.camera_view():
+            opt5.select(opt5.item_count - 1)
+    opt5.item_selected.connect(func(idx: int): Game.set_camera_view(String(Game.CAMERA_VIEWS[idx][0])))
+    page.add_child(opt5)
+    # batterij sparen: 30 beeldjes per seconde en geen schaduwen
+    var bat := CheckBox.new()
+    bat.text = "Batterij sparen"
+    bat.add_theme_font_size_override("font_size", 17)
+    _checkbox_look(bat)
+    bat.position = Vector2(860, Header.CONTENT_Y + 280.0)
+    bat.button_pressed = Game.battery_saver()
+    bat.toggled.connect(func(on: bool): Game.set_battery_saver(on))
+    page.add_child(bat)
+    var bt := _label("30 beeldjes per seconde en geen schaduwen:
+de telefoon blijft koeler en gaat langer mee.", 16, Color("9aa3ab"))
+    bt.position = Vector2(860, Header.CONTENT_Y + 320.0)
+    page.add_child(bt)
+    return page
+
+func _help_page() -> Control:
+    var page := Control.new()
+    page.set_anchors_preset(Control.PRESET_FULL_RECT)
+    page.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    var cols := [
+        ["Besturing", "Pijltje omhoog / W   gas\nPijltje omlaag / S   remmen en achteruit\nPijltjes links/rechts / A en D   sturen\nSpatie   handrem (laat de achterkant uitbreken)\nR   terug naar het laatste checkpoint\nEsc   pauze\n\nIn het menu: pijltjes + Enter, of de muis.\n\nOp een telefoon of tablet verschijnen aanraakknoppen: joystick + knoppen, pijltjes of kantelen (zie Instellingen).\n\nCamera: vier standpunten, te kiezen in het pauzemenu of bij Instellingen.\n\nBatterij sparen (Instellingen): 30 beeldjes per seconde en geen schaduwen, zodat je telefoon koeler blijft."],
+        ["De race", "Je start als 7e van 8 auto's. Elk level heeft meerdere ronden.\n\nDe klok loopt af: elk checkpoint en elke nieuwe ronde geeft extra tijd. De checkpoints staan vlak voor de bezienswaardigheden: kijk goed om je heen!\n\nRechtsboven zie je wie er vlak voor en achter je rijdt, met het verschil in seconden.\n\nNaast de weg op het gras ben je trager en heb je minder grip.\n\n1e = goud, 2e = zilver, 3e = brons. Haal de top 3 om het volgende level vrij te spelen.\n\nVrij rijden: geen klok en geen tegenstanders, rustig langs de bezienswaardigheden.\n\nMoeilijkheid (Makkelijk, Normaal, Moeilijk) stel je in bij Instellingen."],
+        ["Geld en garage", "Elke plaats levert prijzengeld op: hoe hoger je eindigt, hoe meer. Latere levels betalen beter, en op een hogere moeilijkheid krijg je meer (Makkelijk 0,6x, Normaal 1x, Moeilijk 1,5x).\n\nRij een flitspaal omver voor extra tijd en geld. Door rood rijden levert ook een kleine bonus op.\nGeflitst worden kost een boete.\n\nGeflitst? Dan komt de politie met sirene achter je aan (niet op Makkelijk). Laat je je inhalen en vastzetten, of tik je hem te vaak, dan word je aangehouden: boete en tijdverlies. Rij je ver genoeg weg, dan ben je ontsnapt.\n\nFietser aangereden? Dat kost 8 seconden en de politie komt altijd. De politie kun je uitzetten bij Instellingen.\n\nKoop in de garage snellere auto's, upgrades (motor, turbo, banden, remmen) en een nieuwe lakkleur.\n\nIn het eindscherm staat naast de uitslag ook het flitsklassement: wie het hardst geflitst is, en wie welke flitspaal heeft gesloopt."],
+    ]
+    help_box = VBoxContainer.new()
+    help_box.position = Vector2(LIST_X, Header.CONTENT_Y)
+    help_box.size = Vector2(LIST_W, 0)
+    help_box.add_theme_constant_override("separation", 36)
+    help_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    page.add_child(help_box)
+    var row := HBoxContainer.new()
+    row.add_theme_constant_override("separation", 40)
+    help_box.add_child(row)
+    var w := (LIST_W - 2.0 * 40.0) / 3.0
+    for c in cols:
+        var col := VBoxContainer.new()
+        col.custom_minimum_size = Vector2(w, 0)
+        col.add_theme_constant_override("separation", 12)
+        row.add_child(col)
+        col.add_child(_label(String(c[0]), 26, Color("f3df68")))
+        var body := _label(String(c[1]), 18, Color("cfd3d6"))
+        body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+        body.custom_minimum_size = Vector2(w, 0)
+        col.add_child(body)
+    var credit := _label("Motorgeluid: \"rally car idle loop\" via Pixabay (freesound_community), Pixabay-licentie.\nStoomtrein: \"Steam Train Locomotive\" door MeijstroAudio (freesound.org/s/371885, CC BY 4.0).\nStoomfluit: \"steam-train-whistle\" door gadzooks (freesound.org/s/188240, CC0).\nAWACS: \"airplane pass\" via Pixabay (freesound_community).\nOverige geluiden en muziek zijn in code gemaakt.", 14, Color("8d96a0"))
+    help_box.add_child(credit)
+    return page
+
+func _input(event: InputEvent) -> void:
+    if mode_layer != null and event.is_action_pressed("ui_cancel"):
+        _close_mode()
+        get_viewport().set_input_as_handled()
+        return
+    # vijf keer snel op T, of (op telefoon/tablet) vijf keer snel op de titel tikken
+    var tap := false
+    if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_T:
+        tap = true
+    elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+        var local: Vector2 = (make_input_local(event) as InputEventMouseButton).position
+        tap = TITLE_RECT.has_point(local)
+    if tap:
+        var now: float = Time.get_ticks_msec() / 1000.0
+        t_presses.append(now)
+        while t_presses.size() > 0 and now - t_presses[0] > 3.0:
+            t_presses.pop_front()
+        if t_presses.size() >= 5:
+            t_presses.clear()
+            var on: bool = not Game.test_mode()
+            Game.set_test_mode(on)
+            toast.text = "Testmodus aan: alle levels vrij" if on else "Testmodus uit"
+            get_viewport().set_input_as_handled()
+            await get_tree().create_timer(1.2).timeout
+            get_tree().reload_current_scene()
+
+# Duidelijke vinkjes: uit = lichte rand, aan = geel vlak met donker vinkje.
+var _box_off: Texture2D
+var _box_on: Texture2D
+func _checkbox_look(cb: CheckBox) -> void:
+    if _box_off == null:
+        _box_off = _box_texture(false)
+        _box_on = _box_texture(true)
+    for n in ["unchecked", "unchecked_disabled"]:
+        cb.add_theme_icon_override(n, _box_off)
+    for n in ["checked", "checked_disabled"]:
+        cb.add_theme_icon_override(n, _box_on)
+    cb.add_theme_constant_override("h_separation", 12)
+    cb.add_theme_color_override("font_color", Color("cfd3d6"))
+    cb.add_theme_color_override("font_hover_color", Color.WHITE)
+    cb.add_theme_color_override("font_pressed_color", Color.WHITE)
+    cb.add_theme_color_override("font_hover_pressed_color", Color.WHITE)
+    cb.add_theme_color_override("font_focus_color", Color.WHITE)
+
+static func _box_texture(on: bool) -> Texture2D:
+    const N := 30
+    var img := Image.create(N, N, false, Image.FORMAT_RGBA8)
+    img.fill(Color(0, 0, 0, 0))
+    var edge := Color("f3df68") if on else Color("cfd3d6")
+    var fill := Color("f3df68") if on else Color("1e2938")
+    for y in N:
+        for x in N:
+            var dx: float = maxf(0.0, maxf(5.0 - x, x - (N - 6.0)))
+            var dy: float = maxf(0.0, maxf(5.0 - y, y - (N - 6.0)))
+            var r: float = sqrt(dx * dx + dy * dy)   # afgeronde hoeken
+            if r > 5.5:
+                continue
+            var border: bool = x < 3 or y < 3 or x >= N - 3 or y >= N - 3 or r > 2.5
+            img.set_pixel(x, y, edge if border else fill)
+    if on:
+        var ink := Color("101722")
+        var pts := [Vector2(7, 15), Vector2(12, 21), Vector2(23, 9)]
+        for k in range(2):
+            var a: Vector2 = pts[k]
+            var b: Vector2 = pts[k + 1]
+            for t in range(41):
+                var p: Vector2 = a.lerp(b, float(t) / 40.0)
+                for oy in range(-2, 2):
+                    for ox in range(-2, 2):
+                        var q := Vector2i(int(p.x) + ox, int(p.y) + oy)
+                        if q.x >= 0 and q.y >= 0 and q.x < N and q.y < N:
+                            img.set_pixelv(q, ink)
+    return ImageTexture.create_from_image(img)
+
+func _label(text: String, size: int, color: Color) -> Label:
+    var l := Label.new()
+    l.text = text
+    l.add_theme_font_size_override("font_size", size)
+    l.add_theme_color_override("font_color", color)
+    return l

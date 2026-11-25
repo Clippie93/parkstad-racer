@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://d0ox8naeplwf0"]
+
+[ext_resource type="Script" path="res://scripts/world.gd" id="1_world"]
+
+[node name="ParkstadRacer" type="Node3D" unique_id=1413569723]
+script = ExtResource("1_world")

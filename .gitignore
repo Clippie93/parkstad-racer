@@ -1,0 +1,6 @@
+# Godot: cache en geïmporteerde bestanden worden opnieuw gemaakt bij het openen
+.godot/
+# webexport (wordt met tools/publish_web.sh gebouwd en naar de portfolio-site gekopieerd)
+build/
+# macOS
+.DS_Store
