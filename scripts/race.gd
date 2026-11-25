@@ -28,7 +28,14 @@ const RIVALS := [
 const PLAYER_NAME := "Jij"
 const GRID_CLEAR := 200.0   # meter vóór de startgrid zonder meerijdend verkeer (rondje)
 const PLAYER_SLOT := 6        # startplek van de speler (0 = pole position)
-const LEVEL_BOOST := 0.025    # tegenstanders per level 2,5% sneller en grippier
+const LEVEL_BOOST := 0.025    # tegenstanders per level 2,5% sterker (acceleratie, grip, remmen)
+# Topsnelheid groeit minder hard per level (1,75% i.p.v. 2,5%) (25-11, jouw testrit): in de finale reden ze
+# anders ~195 km/u tegen 166 km/u van de startauto, op de lange rechte stukken van de
+# Buitenring niet bij te houden. Ze worden vooral sterker in de bochten.
+const LEVEL_BOOST_SPEED := 0.0175
+# Op Moeilijk kregen ze het hele voordeel van jouw auto erbij, dus een snellere auto of
+# motor-upgrade hielp daar niets voor de topsnelheid; nu driekwart.
+const HARD_SPEED_CATCHUP := 0.75
 # Moeilijkheid (Makkelijk, Normaal, Moeilijk): niveau en auto van de tegenstanders, en de
 # tijdslimiet per stuk. Normaal is na jouw testritten iets sneller gezet (ze waren te traag).
 const DIFF_SKILL := [0.93, 1.015, 1.052]
@@ -617,13 +624,14 @@ func _rival_stats() -> Dictionary:
 	var base: Dictionary = Game.Catalog.CARS[0]
 	var mine: Dictionary = Game.car_stats(Game.selected_car())
 	var share: float = DIFF_CATCHUP[Game.difficulty()]
-	var f: float = (1.0 + LEVEL_BOOST * float(Game.current_index)) * DIFF_CAR[Game.difficulty()]
-	if Game.difficulty() == 2 and level != null:
-		f *= float(level.hard_boost)
+	var hard: float = float(level.hard_boost) if Game.difficulty() == 2 and level != null else 1.0
 	var out := {}
 	for k in ["speed", "accel", "grip", "brake"]:
+		var boost: float = LEVEL_BOOST_SPEED if k == "speed" else LEVEL_BOOST
+		var f: float = (1.0 + boost * float(Game.current_index)) * DIFF_CAR[Game.difficulty()] * hard
+		var sh: float = minf(share, HARD_SPEED_CATCHUP) if k == "speed" else share
 		var extra: float = maxf(float(mine[k]) - float(base[k]), 0.0)
-		out[k] = float(base[k]) * f + extra * share
+		out[k] = float(base[k]) * f + extra * sh
 	return out
 
 # Startopstelling: 4 rijen van 2, de speler op PLAYER_SLOT, de tegenstanders ervoor/ernaast.
