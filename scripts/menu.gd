@@ -252,6 +252,15 @@ func _close_mode() -> void:
         if first_level != null:
             first_level.grab_focus()
 
+# Het profielscherm telt de medailles van het huidige niveau: na een ander niveau opnieuw opbouwen.
+func _rebuild_profile_page() -> void:
+    var at: int = profile_page.get_index()
+    profile_page.queue_free()
+    profile_page = _profile_page()
+    add_child(profile_page)
+    move_child(profile_page, at)
+    profile_page.visible = Game.menu_tab == "profile"
+
 func _profile_page() -> Control:
     var page := Control.new()
     page.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -305,7 +314,7 @@ func _slot_card(i: int, y: float) -> Control:
         tag.add_theme_stylebox_override("normal", tsb)
         tag.size_flags_vertical = Control.SIZE_SHRINK_CENTER
         head.add_child(tag)
-    var line := "%s     %d goud   %d zilver   %d brons" % [Game.format_money(int(info["money"])), info["gold"], info["silver"], info["bronze"]]
+    var line := "%s     %s:  %d goud   %d zilver   %d brons" % [Game.format_money(int(info["money"])), Game.DIFFICULTIES[Game.difficulty()], info["gold"], info["silver"], info["bronze"]]
     var l2 := _label(line, 18, Color("cfd3d6"))
     l2.position = Vector2(26, 52)
     card.add_child(l2)
@@ -482,7 +491,8 @@ func _settings_page() -> Control:
     opt3.select(Game.difficulty())
     opt3.item_selected.connect(func(idx: int):
         Game.set_difficulty(idx)
-        Header.refresh_who(self))
+        Header.refresh_who(self)
+        _rebuild_profile_page())
     page.add_child(opt3)
     var pol := CheckBox.new()
     pol.text = "Politie inschakelen"

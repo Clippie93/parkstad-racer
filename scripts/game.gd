@@ -295,10 +295,12 @@ func profile_name(i: int = -1) -> String:
 
 # Samenvatting voor het profielscherm.
 func slot_info(i: int) -> Dictionary:
-    # per stad de beste medaille, op welke moeilijkheid dan ook
+    # per stad de medaille op het huidige niveau (zoals onder de steden in het Racen-menu);
+    # eerst telde de beste medaille op welk niveau dan ook, waardoor oude Makkelijk-goud
+    # de Normaal-resultaten verborg
     var medals := [0, 0, 0, 0]
     for lv in LEVELS:
-        medals[best_medal_any(String(lv["id"]), i)] += 1
+        medals[best_medal(String(lv["id"]), difficulty(), i)] += 1
     return {"name": profile_name(i), "money": int(_cfg.get_value(_sec("profile", i), "money", 0)),
         "gold": medals[3], "silver": medals[2], "bronze": medals[1],
         "last": int(_cfg.get_value(_sec("profile", i), "last", 0))}
