@@ -32,13 +32,32 @@ func _ready() -> void:
 
 func _window(f: Node3D, x: float, y: float, w := 1.3, h := 2.6, door := false) -> void:
 	Kit.box(f, "Window surround", Vector3(x, y + h * 0.5, 0.03), Vector3(w + 0.5, h + 0.45, 0.07), STONE)
-	Kit.box(f, "Window", Vector3(x, y + h * 0.5, 0.07), Vector3(w, h, 0.04), FRAME if door else GLASS)
 	if door:
-		Kit.cyl(f, "Door arch", Vector3(x, y + h, 0.07), w * 0.5, w * 0.5, 0.04, FRAME, 14, "z")
-		Kit.box(f, "Door leaf", Vector3(x, y + h * 0.45, 0.1), Vector3(0.05, h * 0.9, 0.02), Color("b8b8b4"))
-	else:
-		Kit.box(f, "Window bar", Vector3(x, y + h * 0.5, 0.1), Vector3(0.07, h, 0.03), FRAME)
-		Kit.box(f, "Window bar", Vector3(x, y + h * 0.66, 0.1), Vector3(w, 0.07, 0.03), FRAME)
+		_door(f, x, y, w, h)
+		return
+	Kit.box(f, "Window", Vector3(x, y + h * 0.5, 0.07), Vector3(w, h, 0.04), GLASS)
+	Kit.box(f, "Window bar", Vector3(x, y + h * 0.5, 0.1), Vector3(0.07, h, 0.03), FRAME)
+	Kit.box(f, "Window bar", Vector3(x, y + h * 0.66, 0.1), Vector3(w, 0.07, 0.03), FRAME)
+
+# Openslaande glasdeur met rondboog (naar jouw foto, 25-11): wit kozijn, twee glazen
+# deurvleugels met roedes, en een halfrond bovenlicht met glas.
+func _door(f: Node3D, x: float, y: float, w: float, h: float) -> void:
+	var r: float = w * 0.5
+	# boog: stenen omlijsting, wit kozijn en glas (onderste helft valt achter de deur)
+	Kit.cyl(f, "Door arch surround", Vector3(x, y + h, 0.03), r + 0.25, r + 0.25, 0.07, STONE, 16, "z")
+	Kit.cyl(f, "Door arch frame", Vector3(x, y + h, 0.06), r, r, 0.04, FRAME, 16, "z")
+	Kit.cyl(f, "Door arch glass", Vector3(x, y + h, 0.075), r - 0.12, r - 0.12, 0.03, GLASS, 16, "z")
+	for a in [-0.6, 0.0, 0.6]:
+		var bar := Kit.box(f, "Fanlight bar", Vector3(x + sin(a) * r * 0.45, y + h + cos(a) * r * 0.45, 0.095), Vector3(0.05, r * 0.9, 0.02), FRAME)
+		bar.rotation.z = -a
+	# deur: wit kozijn, glas, middenstijl en roedes
+	Kit.box(f, "Door frame", Vector3(x, y + h * 0.5, 0.09), Vector3(w, h, 0.04), FRAME)
+	Kit.box(f, "Door glass", Vector3(x, y + h * 0.5 + 0.1, 0.115), Vector3(w - 0.24, h - 0.5, 0.02), GLASS)
+	Kit.box(f, "Door panel", Vector3(x, y + 0.2, 0.115), Vector3(w - 0.24, 0.3, 0.02), FRAME)
+	Kit.box(f, "Door stile", Vector3(x, y + h * 0.5, 0.13), Vector3(0.09, h, 0.02), FRAME)
+	Kit.box(f, "Door transom", Vector3(x, y + h - 0.05, 0.13), Vector3(w, 0.1, 0.02), FRAME)
+	for k in range(1, 4):
+		Kit.box(f, "Door bar", Vector3(x, y + 0.35 + (h - 0.5) * float(k) / 4.0, 0.13), Vector3(w - 0.24, 0.04, 0.02), FRAME)
 
 # Rechthoekig blok met mansardedak; front = de lange zijde naar +Z (of +X voor de vleugel).
 func _block(c: Vector3, w: float, d: float, main: bool) -> void:
@@ -50,7 +69,9 @@ func _block(c: Vector3, w: float, d: float, main: bool) -> void:
 	Kit.frustum(self, "Mansard", c + Vector3(0, H + 0.3, 0), w + 0.4, d + 0.4, 1.0, 2.6, SLATE)
 	Kit.frustum(self, "Mansard top", c + Vector3(0, H + 2.9, 0), w - 1.6, d - 1.6, minf(w, d) * 0.5 - 0.8, 1.6, SLATE)
 	for e in [[-w * 0.38, -d * 0.2], [w * 0.38, d * 0.2], [0.0, -d * 0.3]]:
-		Kit.box(self, "Chimney", c + Vector3(e[0], H + 4.6, e[1]), Vector3(1.0, 2.2, 0.8), Color("a0482e"))
+		# van de kroonlijst door het dak omhoog, zodat hij nergens boven het dak zweeft
+		Kit.box(self, "Chimney", c + Vector3(e[0], H + 2.9, e[1]), Vector3(1.0, 5.2, 0.8), Color("a0482e"))
+		Kit.box(self, "Chimney cap", c + Vector3(e[0], H + 5.6, e[1]), Vector3(1.2, 0.2, 1.0), STONE)
 	var yaw := 0.0 if main else 90.0
 	var fw: float = w if main else d
 	var fpos: Vector3 = c + (Vector3(0, 0, d * 0.5) if main else Vector3(w * 0.5, 0, 0))
@@ -70,6 +91,17 @@ func _block(c: Vector3, w: float, d: float, main: bool) -> void:
 		if i % 2 == 0:
 			Kit.box(f, "Dormer", Vector3(x, H + 1.5, -0.4), Vector3(1.2, 1.6, 0.8), FRAME)
 			Kit.box(f, "Dormer roof", Vector3(x, H + 2.45, -0.4), Vector3(1.5, 0.3, 1.0), SLATE)
+	if not main:
+		# kopgevel naar de weg (+Z): twee ramen per verdieping tussen hoeklisenen (jouw foto)
+		var ef := Kit.face(self, c + Vector3(0, 0, d * 0.5), 0.0)
+		for x in [-w * 0.5 + 0.35, w * 0.5 - 0.35]:
+			Kit.box(ef, "Corner pilaster", Vector3(x, H * 0.5, 0.04), Vector3(0.7, H, 0.08), STONE)
+		for x in [-2.2, 2.2]:
+			_window(ef, x, FLOORS[0], 1.3, 2.9)
+			_window(ef, x, FLOORS[1], 1.3, 2.7)
+			_window(ef, x, FLOORS[2], 1.2, 2.3)
+		Kit.box(ef, "Dormer", Vector3(0, H + 1.5, -0.4), Vector3(1.2, 1.6, 0.8), FRAME)
+		Kit.box(ef, "Dormer roof", Vector3(0, H + 2.45, -0.4), Vector3(1.5, 0.3, 1.0), SLATE)
 	if main:
 		# middenrisaliet met fronton en rond venster
 		Kit.box(self, "Risalit", c + Vector3(0, H * 0.5, d * 0.5 + 0.3), Vector3(step * 3.0 + 1.0, H, 0.6), BRICK)
@@ -119,11 +151,28 @@ func _tower(c: Vector3) -> void:
 func _gate(z: float) -> void:
 	for sx in [-1.0, 1.0]:
 		var p := Vector3(sx * 3.2, 0, z)
+		# naar jouw foto: lichtgrijze natuursteen met smalle, gedempte baksteenbanden,
+		# een geprofileerde kap en een stenen bol op een halsje
+		var pale := Color("a9a69e")
+		var band := Color("8d6f62")
+		Kit.box(self, "Gate pillar", p + Vector3(0, 1.8, 0), Vector3(1.0, 3.6, 1.0), pale, true)
+		Kit.box(self, "Pillar base", p + Vector3(0, 0.3, 0), Vector3(1.2, 0.6, 1.2), Color("9a978f"))
 		for k in range(5):
-			var col: Color = Color("8a4a36") if k % 2 == 0 else STONE
-			Kit.box(self, "Gate pillar", p + Vector3(0, 0.5 + float(k) * 0.7, 0), Vector3(1.1, 0.7, 1.1), col, k == 0)
-		Kit.box(self, "Pillar cap", p + Vector3(0, 3.75, 0), Vector3(1.3, 0.2, 1.3), STONE)
-		Kit.cyl(self, "Pillar ball", p + Vector3(0, 4.15, 0), 0.38, 0.38, 0.6, STONE, 10)
+			Kit.box(self, "Pillar band", p + Vector3(0, 1.0 + float(k) * 0.55, 0), Vector3(1.02, 0.2, 1.02), band)
+		Kit.box(self, "Pillar cap", p + Vector3(0, 3.7, 0), Vector3(1.25, 0.2, 1.25), pale)
+		Kit.box(self, "Pillar cap", p + Vector3(0, 3.88, 0), Vector3(1.05, 0.16, 1.05), pale)
+		Kit.cyl(self, "Pillar neck", p + Vector3(0, 4.1, 0), 0.3, 0.2, 0.3, pale, 10)
+		var ball := MeshInstance3D.new()
+		ball.name = "Pillar ball"
+		var bm := SphereMesh.new()
+		bm.radius = 0.36
+		bm.height = 0.72
+		bm.radial_segments = 14
+		bm.rings = 7
+		ball.mesh = bm
+		ball.material_override = Kit.mat(pale)
+		ball.position = p + Vector3(0, 4.55, 0)
+		add_child(ball)
 		# balustrade en hek naar de zijkant
 		var a: float = sx * 3.8
 		var b: float = sx * 30.0
