@@ -19,8 +19,10 @@ const PARK_SHIFT := -16.0   # het park (plein, trap, vijver) ligt 16 m naar -x; 
 const DEPTH := 3.5
 # het gat in de grond (inhoudsruimte): buitenrand op maaiveld en de bodem; aan de pleinkant
 # (z = 10) is het een rechte keermuur
-const PIT_OUT := Rect2(-48, -112, 110, 122)    # x -48..62, z -112..10
-const PIT_IN := Rect2(-38, -102, 90, 112)      # x -38..52, z -102..10
+# 25-11 (jouw opmerking): de vijver is in het echt veel groter dan het plein, dus het
+# park is groter gemaakt (naar achteren en naar rechts; links staat het gemeentehuis)
+const PIT_OUT := Rect2(-48, -190, 148, 200)    # x -48..100, z -190..10
+const PIT_IN := Rect2(-38, -180, 128, 190)     # x -38..90, z -180..10
 const PLAZA_EDGE := 10.0
 
 const GREEN_METAL := Color("4d7468")
@@ -83,15 +85,17 @@ func _pit() -> void:
 	Kit.box(root, "Plaza wall coping", Vector3((o.position.x + o.end.x) * 0.5, 0.08, PLAZA_EDGE + 0.25), Vector3(o.size.x, 0.16, 0.6), Color("cfc9bb"))
 	var c := i.get_center()
 	Kit.box(root, "Park floor", Vector3(c.x, y - 0.35, c.y), Vector3(i.size.x + 0.2, 0.7, i.size.y + 0.2), GRASS, true)
-	# hek langs de pleinrand, behalve bij de trap (x -7..7): daar kun je de trap af rijden
-	_blocker(Vector3((o.position.x - 7.0) * 0.5, 1.0, PLAZA_EDGE + 0.3), Vector3(-7.0 - o.position.x, 2.0, 0.3))
-	_blocker(Vector3((7.0 + o.end.x) * 0.5, 1.0, PLAZA_EDGE + 0.3), Vector3(o.end.x - 7.0, 2.0, 0.3))
+	# hek langs de pleinrand, behalve bij de trap: daar kun je de trap af rijden. Het hek
+	# begint pas achter de leuningen van de trap (x = ±7,4), anders botste je bij het
+	# oprijden van de trap tegen het uiteinde, net naast de leuning
+	_blocker(Vector3((o.position.x - 7.4) * 0.5, 1.0, PLAZA_EDGE + 0.3), Vector3(-7.4 - o.position.x, 2.0, 0.3))
+	_blocker(Vector3((7.4 + o.end.x) * 0.5, 1.0, PLAZA_EDGE + 0.3), Vector3(o.end.x - 7.4, 2.0, 0.3))
 	_rail_line(Vector3(o.position.x, 0, PLAZA_EDGE + 0.3), Vector3(-8.0, 0, PLAZA_EDGE + 0.3))
 	_rail_line(Vector3(8.0, 0, PLAZA_EDGE + 0.3), Vector3(o.end.x, 0, PLAZA_EDGE + 0.3))
 	# grindpaden rond de vijver
 	var py := y + 0.03
-	for p in [[Vector3(7, py, -6), Vector3(84, 0.04, 2.4)], [Vector3(-34, py, -52), Vector3(2.4, 0.04, 92)], [Vector3(7, py, -98), Vector3(84, 0.04, 2.4)],
-			[Vector3(48, py, -52), Vector3(2.4, 0.04, 92)]]:
+	for p in [[Vector3(26, py, -6), Vector3(122, 0.04, 2.4)], [Vector3(-34, py, -92), Vector3(2.4, 0.04, 172)], [Vector3(26, py, -177), Vector3(122, 0.04, 2.4)],
+			[Vector3(86, py, -92), Vector3(2.4, 0.04, 172)]]:
 		Kit.box(root, "Park path", p[0], p[1], Color("d6cdb6"))
 
 func _blocker(p: Vector3, size: Vector3) -> void:
@@ -135,21 +139,21 @@ func _spray_mat() -> StandardMaterial3D:
 func _pond() -> void:
 	var y := -DEPTH + 0.3
 	var wm := Kit.mat(WATER, 0.0, 0.25, 0.12)
-	for b in [[Vector3(7, y, -55), Vector2(39, 38)], [Vector3(-14, y + 0.005, -30), Vector2(18, 14)], [Vector3(30, y + 0.01, -80), Vector2(16, 14)]]:
+	for b in [[Vector3(26, y, -95), Vector2(56, 70)], [Vector3(-12, y + 0.005, -40), Vector2(18, 16)], [Vector3(62, y + 0.01, -150), Vector2(20, 18)]]:
 		var w := Kit.cyl(root, "Pond", b[0], 1.0, 1.0, 0.1, Color.WHITE, 32, "y", false, wm)
 		w.scale = Vector3(b[1].x, 1.0, b[1].y)
-	for p in [Vector3(-30, 0, -40), Vector3(-28, 0, -64), Vector3(44, 0, -40), Vector3(42, 0, -64)]:
+	for p in [Vector3(-30, 0, -60), Vector3(-28, 0, -120), Vector3(81, 0, -60), Vector3(80, 0, -120)]:
 		for k in range(4):
 			Kit.cyl(root, "Reeds", p + Vector3(sin(k * 2.1) * 0.6, -DEPTH + 0.6, float(k) * 1.4 - 2.1), 0.5, 0.15, 1.2, Color("7d8a4a"), 6)
 	# eilandje met een treurwilg
-	var isl := Vector3(-14, -DEPTH, -66)
+	var isl := Vector3(10, -DEPTH, -120)
 	Kit.cyl(root, "Island", isl + Vector3(0, 0.4, 0), 5.5, 4.5, 0.6, Color("5f8a40"), 14)
 	_willow(isl + Vector3(0, 0.6, 0), 1.0)
 	for k in range(5):
 		var a: float = float(k) * 1.3
 		_bush(isl + Vector3(cos(a) * 3.5, 0.7, sin(a) * 3.5), 1.4, Color("5a8a3e"))
 	# fontein
-	var fp := Vector3(12, y + 0.05, -48)
+	var fp := Vector3(30, y + 0.05, -70)
 	var spray := _spray_mat()
 	Kit.cyl(root, "Fountain float", fp, 1.2, 1.2, 0.15, Color("d8dcdc"), 12)
 	Kit.cyl(root, "Fountain jet", fp + Vector3(0, 3.5, 0), 0.35, 0.08, 7.0, Color.WHITE, 10, "y", false, spray)
@@ -157,7 +161,7 @@ func _pond() -> void:
 	Kit.cyl(root, "Fountain spray", fp + Vector3(0, 0.8, 0), 3.0, 0.4, 1.6, Color.WHITE, 16, "y", false, spray)
 	Kit.cyl(root, "Fountain foam", fp + Vector3(0, 0.05, 0), 3.4, 3.4, 0.08, Color("e6eef0"), 16)
 	# beeld van twee gestapelde bollen in het water
-	var sp := Vector3(28, y, -26)
+	var sp := Vector3(55, y, -45)
 	Kit.cyl(root, "Sculpture neck", sp + Vector3(0, 1.0, 0), 0.35, 0.35, 2.0, DARK, 10)
 	for s in [[1.1, 0.95], [2.75, 1.0]]:
 		var ball := MeshInstance3D.new()
@@ -271,6 +275,18 @@ func _cascade(xc: float) -> void:
 	ramp.rotation.x = -slope
 	ramp.position = Vector3(xc, -DEPTH * 0.5, PLAZA_EDGE - 7.0) - Vector3(0, 0.15 / cos(slope), 0)
 	root.add_child(ramp)
+	# de buitenste leuningen houden je op de trap (anders rijd je er 3,5 m naast af)
+	for sx in [-1.0, 1.0]:
+		var rail := StaticBody3D.new()
+		rail.name = "Stair rail wall"
+		var wcs := CollisionShape3D.new()
+		var wbox := BoxShape3D.new()
+		wbox.size = Vector3(0.3, 1.2, run_len)
+		wcs.shape = wbox
+		rail.add_child(wcs)
+		rail.rotation.x = -slope
+		rail.position = Vector3(xc + sx * 7.15, -DEPTH * 0.5 + 0.6, PLAZA_EDGE - 7.0)
+		root.add_child(rail)
 	for s in [-1.0, 1.0]:
 		var x: float = xc + s * 2.0
 		var a := Vector3(x, 0.3, PLAZA_EDGE)
@@ -280,18 +296,36 @@ func _cascade(xc: float) -> void:
 	for s in [-1.0, 1.0]:
 		var x: float = xc + s * 7.0
 		_rail_line(Vector3(x, 0.1, PLAZA_EDGE), Vector3(x, -DEPTH + 0.1, PLAZA_EDGE - 14.0), 1.0)
-	# bovenaan een boog met een wiel (half rad met spaken)
-	var wc := Vector3(xc, 0.9, PLAZA_EDGE + 0.4)
-	var r := 2.3
-	var prev := wc + Vector3(-r, 0, 0)
-	for k in range(1, 13):
-		var a: float = PI * float(k) / 12.0
-		var q: Vector3 = wc + Vector3(-cos(a) * r, sin(a) * r, 0)
-		Kit.beam(root, "Wheel rim", prev, q, 0.1, GREEN_METAL)
-		if k % 2 == 0 and k < 12:
-			Kit.beam(root, "Wheel spoke", wc, q, 0.06, GREEN_METAL)
-		prev = q
-	Kit.cyl(root, "Wheel hub", wc, 0.35, 0.35, 0.1, GREEN_METAL, 12, "z")
+	# bovenaan de waterval een sierboog (naar jouw foto): een halve cirkel van groen metaal
+	# die op de bovenste tree staat, met een binnenring, spaken en een rozet; je rijdt er
+	# niet doorheen
+	var wc := Vector3(xc, 0.0, PLAZA_EDGE - 0.2)
+	var r := 2.1
+	for ring in [[r, 0.12], [r * 0.55, 0.07]]:
+		var rr: float = ring[0]
+		var prev := wc + Vector3(-rr, 0, 0)
+		for k in range(1, 15):
+			var a: float = PI * float(k) / 14.0
+			var q: Vector3 = wc + Vector3(-cos(a) * rr, sin(a) * rr, 0)
+			Kit.beam(root, "Arch rim", prev, q, ring[1], GREEN_METAL)
+			prev = q
+	for k in range(1, 8):
+		var a: float = PI * float(k) / 8.0
+		Kit.beam(root, "Arch spoke", wc + Vector3(-cos(a) * r * 0.55, sin(a) * r * 0.55, 0), wc + Vector3(-cos(a) * r, sin(a) * r, 0), 0.05, GREEN_METAL)
+		# blad-/vlamvormige krul tussen de spaken
+		var mid: float = PI * (float(k) - 0.5) / 8.0
+		Kit.beam(root, "Arch leaf", wc + Vector3(-cos(mid) * r * 0.62, sin(mid) * r * 0.62, 0), wc + Vector3(-cos(mid) * r * 0.9, sin(mid) * r * 0.9, 0), 0.03, GREEN_METAL)
+	Kit.beam(root, "Arch base", wc + Vector3(-r, 0.02, 0), wc + Vector3(r, 0.02, 0), 0.12, GREEN_METAL)
+	Kit.cyl(root, "Arch rosette", wc + Vector3(0, 0.25, 0), 0.4, 0.4, 0.06, GREEN_METAL, 12, "z")
+	var arch_block := StaticBody3D.new()
+	arch_block.name = "Arch block"
+	var acs := CollisionShape3D.new()
+	var abox := BoxShape3D.new()
+	abox.size = Vector3(r * 2.0, 2.2, 0.3)
+	acs.shape = abox
+	arch_block.add_child(acs)
+	arch_block.position = wc + Vector3(0, 1.1, 0)
+	root.add_child(arch_block)
 
 # ------------------------------------------------------------------ nieuwe gemeentehuis
 # Laag gebouw van gele baksteen met een glazen pui, een zwart trappenhuis aan de pleinkant,
@@ -364,15 +398,15 @@ func _town_hall_new() -> void:
 # ------------------------------------------------------------------ bomen
 func _park_trees() -> void:
 	var fl := -DEPTH
-	for p in [Vector3(-30, fl, -96), Vector3(-12, fl, -99), Vector3(6, fl, -97), Vector3(24, fl, -99), Vector3(42, fl, -95),
-			Vector3(-43, -1.8, -30), Vector3(-43, -1.8, -60), Vector3(-43, -1.8, -88), Vector3(57, -1.8, -20), Vector3(57, -1.8, -50),
-			Vector3(57, -1.8, -82), Vector3(-46, 0, -108), Vector3(60, 0, -108)]:
+	for p in [Vector3(-30, fl, -172), Vector3(-6, fl, -175), Vector3(20, fl, -173), Vector3(46, fl, -175), Vector3(72, fl, -171),
+			Vector3(-43, -1.8, -40), Vector3(-43, -1.8, -90), Vector3(-43, -1.8, -140), Vector3(95, -1.8, -30), Vector3(95, -1.8, -80),
+			Vector3(95, -1.8, -130), Vector3(-46, 0, -186), Vector3(98, 0, -186)]:
 		_tree(p, 11.0 + absf(sin(p.x * 0.7 + p.z)) * 5.0)
-	for p in [Vector3(-2, fl, -94), Vector3(14, fl, -95), Vector3(34, fl, -93)]:
+	for p in [Vector3(8, fl, -170), Vector3(32, fl, -171), Vector3(58, fl, -169)]:
 		Kit.cyl(root, "Swamp cypress", p + Vector3(0, 7.0, 0), 2.6, 0.3, 14.0, Color("3f6a3a"), 10)
-	for p in [Vector3(-30, fl, -12), Vector3(44, fl, -12), Vector3(-30, fl, -82)]:
+	for p in [Vector3(-30, fl, -12), Vector3(82, fl, -12), Vector3(-30, fl, -150)]:
 		_willow(p, 1.1)
-	for x in [-28.0, -18.0, 18.0, 30.0, 40.0]:
+	for x in [-28.0, -18.0, 18.0, 30.0, 40.0, 58.0, 74.0]:
 		_bush(Vector3(x, fl, -3.0), 1.8, Color("4f7a36"))
 
 func _tree(p: Vector3, h: float) -> void:

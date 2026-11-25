@@ -71,6 +71,8 @@ func progress() -> float:
 # 'striping' van rood-oranje en blauwe banen over de voorkant van de flank (spatbord en
 # voorportier) en een platte lichtbalk op het dak. Geen tekst en geen embleem.
 func _dress() -> void:
+	# de opbouw kantelt mee met de auto (zie car.gd, _tilt_to_ground)
+	var vis: Node3D = car.tilt if car.tilt != null else car
 	var blue := Color("1d3b94")
 	var red := Color("f05a24")
 	for x in [-1.0, 1.0]:
@@ -102,30 +104,30 @@ func _dress() -> void:
 			var mi := MeshInstance3D.new()
 			mi.name = "Police striping"
 			mi.mesh = Kit._mesh_from(pair[0], Kit._two_sided(pair[1]))
-			car.add_child(mi)
+			vis.add_child(mi)
 		# dunne blauwe lijn langs de onderkant
-		Kit.box(car, "Police sill line", Vector3(xs, 0.34, -0.2), Vector3(0.012, 0.05, 3.4), blue)
+		Kit.box(vis, "Police sill line", Vector3(xs, 0.34, -0.2), Vector3(0.012, 0.05, 3.4), blue)
 	# Audi-achtige voorkant: grote donkere 'single frame'-grille, smalle koplampen en
 	# dakrails (een A6 Avant, zonder merkteken)
 	var dark := Color("17191c")
 	var chrome := Color("b9bec4")
 	# (de standaard koplampen en achterlichten tekent car_look niet voor de politie)
-	Kit.box(car, "Grille frame", Vector3(0, 0.5, -1.985), Vector3(0.82, 0.4, 0.03), chrome)
-	Kit.box(car, "Grille", Vector3(0, 0.5, -1.995), Vector3(0.74, 0.34, 0.03), dark)
+	Kit.box(vis, "Grille frame", Vector3(0, 0.5, -1.985), Vector3(0.82, 0.4, 0.03), chrome)
+	Kit.box(vis, "Grille", Vector3(0, 0.5, -1.995), Vector3(0.74, 0.34, 0.03), dark)
 	for k in range(4):
-		Kit.box(car, "Grille bar", Vector3(0, 0.38 + float(k) * 0.08, -2.01), Vector3(0.72, 0.015, 0.01), Color("3a3e44"))
+		Kit.box(vis, "Grille bar", Vector3(0, 0.38 + float(k) * 0.08, -2.01), Vector3(0.72, 0.015, 0.01), Color("3a3e44"))
 	for x in [-1.0, 1.0]:
-		Kit.box(car, "Slim headlight", Vector3(x * 0.62, 0.6, -1.985), Vector3(0.38, 0.07, 0.03), Color("eef3f8"))
-		Kit.box(car, "Headlight housing", Vector3(x * 0.62, 0.6, -1.98), Vector3(0.44, 0.12, 0.02), dark)
-		Kit.box(car, "Fog light", Vector3(x * 0.6, 0.38, -1.99), Vector3(0.18, 0.06, 0.02), Color("2b2e33"))
-		Kit.box(car, "Roof rail", Vector3(x * 0.6, 1.36, 0.75), Vector3(0.05, 0.05, 1.5), Color("2a2d31"))
-		Kit.box(car, "Tail light bar", Vector3(x * 0.55, 0.78, 1.995), Vector3(0.6, 0.08, 0.02), Color("c8202a"))
-	Kit.box(car, "Rear chrome strip", Vector3(0, 0.62, 2.0), Vector3(1.2, 0.03, 0.02), chrome)
-	Kit.box(car, "Number plate", Vector3(0, 0.36, -2.0), Vector3(0.52, 0.12, 0.02), Color("f2c230"))
-	Kit.box(car, "Rear number plate", Vector3(0, 0.55, 2.0), Vector3(0.52, 0.12, 0.02), Color("f2c230"))
+		Kit.box(vis, "Slim headlight", Vector3(x * 0.62, 0.6, -1.985), Vector3(0.38, 0.07, 0.03), Color("eef3f8"))
+		Kit.box(vis, "Headlight housing", Vector3(x * 0.62, 0.6, -1.98), Vector3(0.44, 0.12, 0.02), dark)
+		Kit.box(vis, "Fog light", Vector3(x * 0.6, 0.38, -1.99), Vector3(0.18, 0.06, 0.02), Color("2b2e33"))
+		Kit.box(vis, "Roof rail", Vector3(x * 0.6, 1.36, 0.75), Vector3(0.05, 0.05, 1.5), Color("2a2d31"))
+		Kit.box(vis, "Tail light bar", Vector3(x * 0.55, 0.78, 1.995), Vector3(0.6, 0.08, 0.02), Color("c8202a"))
+	Kit.box(vis, "Rear chrome strip", Vector3(0, 0.62, 2.0), Vector3(1.2, 0.03, 0.02), chrome)
+	Kit.box(vis, "Number plate", Vector3(0, 0.36, -2.0), Vector3(0.52, 0.12, 0.02), Color("f2c230"))
+	Kit.box(vis, "Rear number plate", Vector3(0, 0.55, 2.0), Vector3(0.52, 0.12, 0.02), Color("f2c230"))
 	# rood-blauwe pijlpunt op de voorkant van de motorkap
-	Kit.box(car, "Police hood red", Vector3(0, 0.82, -1.7), Vector3(1.5, 0.02, 0.12), red)
-	Kit.box(car, "Police hood blue", Vector3(0, 0.81, -1.86), Vector3(1.6, 0.02, 0.1), blue)
+	Kit.box(vis, "Police hood red", Vector3(0, 0.82, -1.7), Vector3(1.5, 0.02, 0.12), red)
+	Kit.box(vis, "Police hood blue", Vector3(0, 0.81, -1.86), Vector3(1.6, 0.02, 0.1), blue)
 	lens_on = StandardMaterial3D.new()
 	lens_on.albedo_color = Color("3a7bff")
 	lens_on.emission_enabled = true
@@ -133,9 +135,9 @@ func _dress() -> void:
 	lens_on.emission_energy_multiplier = 4.0
 	lens_off = StandardMaterial3D.new()
 	lens_off.albedo_color = Color("1a2a55")
-	Kit.box(car, "Lightbar base", Vector3(0, 1.4, 0.1), Vector3(1.2, 0.06, 0.3), Color("2a2d31"))
+	Kit.box(vis, "Lightbar base", Vector3(0, 1.4, 0.1), Vector3(1.2, 0.06, 0.3), Color("2a2d31"))
 	for x in [-0.33, 0.33]:
-		var l := Kit.box(car, "Lightbar lens", Vector3(x, 1.48, 0.1), Vector3(0.52, 0.1, 0.26), Color.WHITE, false, lens_off)
+		var l := Kit.box(vis, "Lightbar lens", Vector3(x, 1.48, 0.1), Vector3(0.52, 0.1, 0.26), Color.WHITE, false, lens_off)
 		lights.append(l)
 	beacon = OmniLight3D.new()
 	beacon.light_color = Color("3a7bff")

@@ -62,8 +62,8 @@ func build() -> void:
     # zoals op de kaart: je rijdt langs het Lindeplein (met het nieuwe gemeentehuis aan het
     # eind en de vijver erachter), neemt de bocht en komt bij het oude gemeentehuis uit
     var vp: Node3D = place_beside(LmVijverpark.new(), route.closest_s(Vector3(50, 0, 165)), -1.0, 93.0, Vector2(1, 1))
-    # plein + park (x -71..39) en het gemeentehuis links ervan (x -107..-77), lokaal
-    exclude_local(vp, Rect2(-108, -80, 150, 156))
+    # plein + park (x -71..77, z -157..79) en het gemeentehuis links ervan (x -107..-77), lokaal
+    exclude_local(vp, Rect2(-108, -160, 188, 240))
     # het oude gemeentehuis op de buitenhoek van de bocht: je rijdt er recht op af
     # (zoals op jouw foto vanaf de Lindeplein-straat)
     var corner := Vector3(50, 0, 0)

@@ -316,9 +316,29 @@ func _physics_process(delta: float) -> void:
     velocity.z = forward.z * drive_speed + slide.z
     velocity.y = -1.0 if is_on_floor() else velocity.y - 20.0 * delta
     move_and_slide()
+    _tilt_to_ground(delta)
     if camera != null:
         _update_camera(delta)
     _resolve_collisions(forward)
+
+# Meekantelen met de helling (trappen, heuvels, taluds): eerst bleef de auto waterpas en
+# hing hij op een helling half in de lucht. Het botsblok blijft rechtop; alleen het beeld
+# kantelt naar de vloer, en zakt zoveel als het blok op een helling boven de grond hangt.
+const TILT_HALF_LEN := 1.9
+var tilt: Node3D
+func _tilt_to_ground(delta: float) -> void:
+    if tilt == null:
+        return
+    var target := Quaternion.IDENTITY
+    var drop := 0.0
+    if is_on_floor():
+        var n: Vector3 = (global_transform.basis.inverse() * get_floor_normal()).normalized()
+        if n.y > 0.5:
+            target = Quaternion(Vector3.UP, n)
+            drop = TILT_HALF_LEN * tan(acos(clampf(n.y, -1.0, 1.0)))
+    var k: float = minf(1.0, delta * 10.0)
+    tilt.quaternion = tilt.quaternion.slerp(target, k)
+    tilt.position.y = lerpf(tilt.position.y, -drop, k)
 
 # Botsingen: per contact alleen de snelheid de muur (of auto) in wegnemen, met een kleine
 # terugstuit tegen muren. Langs het oppervlak verlies je weinig bij een schampende botsing en
@@ -464,6 +484,15 @@ func _make_visuals() -> void:
     collider.position.y = 0.6
     add_child(collider)
     CarLook.build(self, body_color, stripe_color, car_style, race_number)
+    # alle onderdelen van de auto in één knooppunt dat met de helling meekantelt (het
+    # botsblok blijft rechtop: zo blijft het rijden en botsen hetzelfde)
+    tilt = Node3D.new()
+    tilt.name = "Tilt"
+    add_child(tilt)
+    for c in get_children():
+        if c == tilt or c is CollisionShape3D or c is Camera3D or not (c is Node3D):
+            continue
+        c.reparent(tilt, false)
 
 func _box(n: String, size: Vector3, pos: Vector3, mat: Material) -> void:
     var node := MeshInstance3D.new()
