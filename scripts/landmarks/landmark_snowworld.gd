@@ -2,9 +2,10 @@ extends Node3D
 # SnowWorld op de Wilhelminaberg, Landgraaf. Naar jouw foto's (20-11):
 # - de skihal: een lange hal die tegen de beboste berg op loopt. Wit dak met twee lange
 #   stroken zonnepanelen, grijsgroene zijwanden en een witte kop op de top van de berg.
-# - onderaan de entree: een rij houten chaletgevels met leien daken (FITNESS, WELLNESS,
-#   BEAUTY), de grote glazen gevel met houten schoren en het rode S-logo, SNOWWORLD in
-#   witte letters op het hout, een rood-wit gestreepte band, en rechts het hoteltorentje
+# - onderaan de entree: een rij puntgeveltjes met leien daken naar het parkeerterrein, aan
+#   het westelijke eind een houten gebouwtje met SNOWWORLD (gevel naar het terras), de grote
+#   glazen ingang met houten schoren, het rode S-logo en een rood-wit gestreepte band (kijkt
+#   ook naar het terras, iets terugliggend), terras met tafels en parasols, rechts het hoteltorentje
 #   (houten gevel met oranje kozijnen, glazen bovenste verdieping).
 # - de lange trap tegen de Wilhelminaberg op, met bovenop het kunstwerk: een kring van
 #   hoge, donkere stalen kolommen.
@@ -244,16 +245,29 @@ func _front() -> void:
 	var bf := Kit.face(self, Vector3(4.0, 0, 20.0), 0)
 	for k in range(5):
 		Kit.box(bf, "Base window", Vector3(-16.0 + float(k) * 8.0, 8.3, 0.05), Vector3(5.0, 2.2, 0.1), GLASS)
-	# rij chalets met leien daken; de grote glazen gevel is de ingang
-	var names := ["FITNESS", "WELLNESS", "BEAUTY"]
-	for k in range(3):
-		_chalet(Vector3(-49.0 + float(k) * 10.4, 0, 30.0), 9.6, 7.0, 6.2, names[k])
-	_name_wall(Vector3(-19.1, 0, 30.0), 8.6)
-	_entrance(Vector3(-6.0, 0, 30.0))
-	# plein met rode klinkers en paaltjes
-	Kit.box(self, "Plaza", Vector3(-22.0, 0.05, 40.0), Vector3(66.0, 0.1, 8.0), Color("9a7766"))
-	for k in range(11):
-		Kit.cyl(self, "Bollard", Vector3(-51.0 + float(k) * 5.5, 0.45, 43.5), 0.12, 0.12, 0.9, Color("8e9396"), 8)
+	# Indeling naar jouw foto's en de luchtfoto (25-11): een rij puntgeveltjes naar het
+	# parkeerterrein onder één groot leien dak; aan het westelijke eind (-X) het houten
+	# gebouwtje met SNOWWORLD, haaks op de puntgevels, met de gevel naar het terras; de grote
+	# glazen ingang kijkt ook naar het terras en ligt iets terug, achter het hout.
+	Kit.box(self, "Chalet block", Vector3(-20.0, 3.5, 27.0), Vector3(28.0, 7.0, 14.0), WHITE, true)
+	Kit.gable(self, "Chalet block roof", Vector3(-20.0, 7.0, 26.0), 18.0, 28.6, 5.5, SLATE, true)
+	for k in range(4):
+		_chalet(Vector3(-30.5 + float(k) * 7.0, 0, 30.0), 6.6, 7.0, 4.6, "")
+	_name_wall(Vector3(-35.5, 0, 28.5), 19.0)
+	var ent := Node3D.new()
+	ent.name = "Entrance"
+	ent.position = Vector3(-27.0, 0, 9.5)
+	ent.rotation_degrees.y = -90.0      # glasgevel kijkt naar -X (het terras)
+	add_child(ent)
+	_entrance(ent, Vector3.ZERO)
+	# terras aan de westkant en plein voor de puntgevels, met rode klinkers en paaltjes
+	Kit.box(self, "Terrace", Vector3(-50.0, 0.05, 20.0), Vector3(28.0, 0.1, 44.0), Color("9a7766"))
+	Kit.box(self, "Plaza", Vector3(-1.0, 0.05, 40.0), Vector3(70.0, 0.1, 8.0), Color("9a7766"))
+	# voorplein tussen de puntgevels en het hotel (waar vroeger de ingang stond)
+	Kit.box(self, "Forecourt", Vector3(4.0, 0.05, 28.0), Vector3(20.0, 0.1, 16.0), Color("9a7766"))
+	for k in range(13):
+		Kit.cyl(self, "Bollard", Vector3(-62.0 + float(k) * 5.5, 0.45, 43.5), 0.12, 0.12, 0.9, Color("8e9396"), 8)
+	_terrace_furniture()
 	# vlaggen
 	var flags := [Color("d23c3c"), Color("e8ecee"), Color("d23c3c"), Color("1f2a36")]
 	for k in range(4):
@@ -278,7 +292,8 @@ func _chalet(c: Vector3, w: float, wall_h: float, rise: float, text: String) -> 
 	# houten top en band met de naam
 	_tri(f, "Chalet gable wood", wall_h, w + 1.2, rise + 0.35, 0.2, WOOD)
 	Kit.box(f, "Chalet band", Vector3(0, wall_h - 1.0, 0.06), Vector3(w - 1.2, 2.0, 0.12), WOOD)
-	Kit.label(f, text, Vector3(0, wall_h - 1.0, 0.14), 0.0125, Color("f4f1ea"), 96)
+	if text != "":
+		Kit.label(f, text, Vector3(0, wall_h - 1.0, 0.14), 0.0125, Color("f4f1ea"), 96)
 	# ramen: onder een glazen pui, boven twee vensters
 	Kit.box(f, "Chalet glass", Vector3(0, 1.6, 0.05), Vector3(w - 1.6, 3.2, 0.1), GLASS)
 	for x in [-1.6, 1.6]:
@@ -289,34 +304,51 @@ func _chalet(c: Vector3, w: float, wall_h: float, rise: float, text: String) -> 
 	Kit.beam(f, "Barge board", Vector3(w * 0.5 + 0.8, wall_h - 0.1, 0.3), Vector3(0, wall_h + rise + 0.25, 0.3), 0.35, edge)
 	Kit.box(f, "Tie beam", Vector3(0, wall_h + 0.05, 0.22), Vector3(w + 0.4, 0.3, 0.3), Color("9a6b42"))
 
-# Houten gevel tussen de chalets en de glazen ingang, met SNOWWORLD in witte letters
-# (zoals in het echt: de naam staat op het hout, niet op de glasgevel), glazen pui onderaan.
+# Houten gebouwtje aan het westelijke eind van de puntgevels, met de gevel naar het terras
+# (-X): lichte houten delen, SNOWWORLD in witte letters, glazen pui met deuren onderaan.
+# c = midden van de gevel op de grond, w = breedte van de gevel (langs Z).
 func _name_wall(c: Vector3, w: float) -> void:
-	var h := 10.5
-	var depth := 16.0
-	Kit.box(self, "Name wall", c + Vector3(0, h * 0.5, -0.6), Vector3(w, h, depth), WOOD, true)
-	Kit.box(self, "Name wall roof", c + Vector3(0, h + 0.15, -0.6), Vector3(w + 0.3, 0.3, depth + 0.3), SLATE)
-	var f := Kit.face(self, c + Vector3(0, 0, depth * 0.5 - 0.6), 0)
-	# horizontale houten delen
-	var y := 3.4
+	var h := 10.0
+	var depth := 5.0
+	var light_wood := Color("c08a55")
+	Kit.box(self, "Name wall", c + Vector3(depth * 0.5, h * 0.5, 0), Vector3(depth, h, w), light_wood, true)
+	# leien dak met de goot langs de terrasgevel (nok evenwijdig aan de gevel)
+	Kit.gable(self, "Name wall roof", c + Vector3(depth * 0.5 + 3.0, h, 0), depth + 6.8, w + 0.8, 4.5, SLATE)
+	var f := Kit.face(self, c, -90.0)     # gevel naar -X
+	var y := 0.4
 	while y < h - 0.2:
-		Kit.box(f, "Cladding seam", Vector3(0, y, 0.02), Vector3(w, 0.05, 0.04), Color("74492b"))
-		y += 0.45
-	# glazen pui met deuren onderaan, witte penant rechts
-	Kit.box(f, "Name wall glass", Vector3(-0.4, 1.55, 0.05), Vector3(w - 1.6, 3.1, 0.1), GLASS)
-	Kit.box(f, "Name wall pier", Vector3(w * 0.5 - 0.4, h * 0.5, 0.1), Vector3(0.8, h, 0.3), WHITE)
-	Kit.label(f, "SNOWWORLD", Vector3(-0.4, 6.6, 0.08), 0.0105, Color("f6f6f2"), 96)
+		Kit.box(f, "Cladding seam", Vector3(0, y, 0.02), Vector3(w, 0.04, 0.04), Color("a87a4a"))
+		y += 0.55
+	Kit.box(f, "Name wall glass", Vector3(-w * 0.5 + 4.0, 1.5, 0.06), Vector3(5.0, 3.0, 0.1), GLASS)
+	Kit.box(f, "Name wall pier", Vector3(-w * 0.5 + 0.4, h * 0.5, 0.15), Vector3(0.8, h, 0.3), WHITE)
+	Kit.label(f, "SNOWWORLD", Vector3(1.0, 6.2, 0.08), 0.013, Color("f6f6f2"), 96)
+
+# Terrasmeubels: picknicktafels, statafels van tonnen en grijze parasols.
+func _terrace_furniture() -> void:
+	var wood := Color("8a6a48")
+	for t in [Vector3(-46, 0, 30), Vector3(-52, 0, 24), Vector3(-46, 0, 18), Vector3(-54, 0, 12), Vector3(-47, 0, 6)]:
+		Kit.box(self, "Picnic table", t + Vector3(0, 0.75, 0), Vector3(1.0, 0.06, 2.2), wood)
+		for sx in [-0.75, 0.75]:
+			Kit.box(self, "Picnic bench", t + Vector3(sx, 0.45, 0), Vector3(0.35, 0.05, 2.2), wood)
+		for sz in [-0.9, 0.9]:
+			Kit.box(self, "Picnic leg", t + Vector3(0, 0.37, sz), Vector3(1.8, 0.74, 0.08), wood)
+	for t in [Vector3(-41, 0, 36), Vector3(-43, 0, 38.5), Vector3(-39.5, 0, 39)]:
+		Kit.cyl(self, "Barrel", t + Vector3(0, 0.5, 0), 0.38, 0.38, 1.0, Color("7a5434"), 10)
+		Kit.cyl(self, "Barrel top", t + Vector3(0, 1.03, 0), 0.55, 0.55, 0.06, Color("2e2b28"), 12)
+	for u in [Vector3(-49, 0, 27), Vector3(-50, 0, 15), Vector3(-44, 0, 36)]:
+		Kit.cyl(self, "Parasol pole", u + Vector3(0, 1.4, 0), 0.05, 0.05, 2.8, Color("5a5550"), 6)
+		Kit.cyl(self, "Parasol", u + Vector3(0, 2.75, 0), 2.0, 0.1, 0.55, Color("8e9091"), 4)
 
 # Grote ingang: hoge glazen gevel onder een steil leien dak, houten schoren, rood S-logo,
 # en een rood-witte band onderaan. De naam staat op de houten gevel ernaast (_name_wall).
-func _entrance(c: Vector3) -> void:
+func _entrance(p: Node3D, c: Vector3) -> void:
 	var w := 17.0
 	var wall_h := 9.0
 	var rise := 11.0
 	var depth := 18.0
-	Kit.box(self, "Entrance hall", c + Vector3(0, wall_h * 0.5, -1.0), Vector3(w, wall_h, depth), WHITE, true)
-	Kit.gable(self, "Entrance roof", c + Vector3(0, wall_h, -1.0), w + 2.0, depth + 0.2, rise, SLATE)
-	var f := Kit.face(self, c + Vector3(0, 0, depth * 0.5 - 1.0), 0)
+	Kit.box(p, "Entrance hall", c + Vector3(0, wall_h * 0.5, -1.0), Vector3(w, wall_h, depth), WHITE, true)
+	Kit.gable(p, "Entrance roof", c + Vector3(0, wall_h, -1.0), w + 2.0, depth + 0.2, rise, SLATE)
+	var f := Kit.face(p, c + Vector3(0, 0, depth * 0.5 - 1.0), 0)
 	# glazen pui en glazen top, met stijlen
 	var glass := Kit.glass_mat(Color("5d7c8a"))
 	Kit.box(f, "Entrance glass", Vector3(0, wall_h * 0.5, 0.05), Vector3(w - 1.0, wall_h, 0.1), Color.WHITE, false, glass)
