@@ -58,8 +58,11 @@ const PRIZE_SHARE := [1.0, 0.6, 0.4, 0.25, 0.15, 0.1, 0.05, 0.05]
 const CAMERA_BONUS := 250
 # Prijzengeld-factor per moeilijkheid (Makkelijk, Normaal, Moeilijk).
 const PRIZE_DIFF := [0.6, 1.0, 1.5]
-const FINE_BASE := 50
-const FINE_PER_KMH := 3
+# Geflitst worden kost geen geld meer (25-11, zoals in de meeste racegames): het gevolg is
+# dat de politie achter je aan komt. Alleen aangehouden worden kost een boete.
+# Vangnet: boetes kunnen nooit meer dan dit deel van wat je in een race verdient opeten,
+# zodat goed rijden altijd iets oplevert.
+const FINE_CAP := 0.5
 # Boetes groeien mee met het level (Heerlen de helft, finale volledig), net als het
 # prijzengeld. En je raakt in een race nooit meer kwijt dan je die race verdient: je
 # spaargeld blijft altijd veilig (zie _payout).
@@ -1523,7 +1526,7 @@ func camera_knocked(sec: float) -> void:
 	Sfx.play(self, "coin", -5.0)
 	_big("FLITSER OMVER!\n+%d s   +%s" % [int(sec), Game.format_money(CAMERA_BONUS)], 1.6, Color("7be07b"))
 
-# Geflitst: boete, afhankelijk van hoeveel te hard.
+# Geflitst: geen boete, maar de politie komt eraan (zie spawn_police).
 func speeding_fine(kmh: int, limit: int) -> void:
 	if free:
 		Sfx.play(self, "flash", -3.0)
@@ -1531,10 +1534,8 @@ func speeding_fine(kmh: int, limit: int) -> void:
 		return
 	if state != State.RACING:
 		return
-	var fine: int = _scaled(FINE_BASE + FINE_PER_KMH * maxi(0, kmh - limit))
-	cash_fines += fine
 	Sfx.play(self, "flash", -3.0)
-	_big("GEFLITST!  %d km/u  (max %d)\nBOETE  %s" % [kmh, limit, Game.format_money(fine)], 1.6, Color("ef5a4f"))
+	_big("GEFLITST!  %d km/u  (max %d)" % [kmh, limit], 1.6, Color("ef5a4f"))
 	spawn_police(kmh)
 
 # ---------------------------------------------------------------- politie
@@ -1693,8 +1694,10 @@ func prize_for(pos: int) -> int:
 # Rekent af aan het eind van de race en geeft de regels voor het eindscherm.
 func _payout(pos: int) -> Array:
 	var prize: int = prize_for(pos) if pos > 0 else 0
-	# boetes gaan alleen van wat je deze race verdient af, nooit van je spaargeld
-	var charged: int = mini(cash_fines, prize + cash_cameras + cash_red + cash_escape)
+	# boetes gaan alleen van wat je deze race verdient af (nooit van je spaargeld), en
+	# hoogstens de helft daarvan: goed rijden levert altijd iets op
+	var earned: int = prize + cash_cameras + cash_red + cash_escape
+	var charged: int = mini(cash_fines, int(float(earned) * FINE_CAP))
 	var total: int = prize + cash_cameras + cash_red + cash_escape - charged
 	if not paid:
 		paid = true
