@@ -95,8 +95,9 @@ func _set_tab_icon() -> void:
 # Ze staan vast in default_bus_layout.tres: in de webversie worden kanalen die pas tijdens
 # het spelen worden aangemaakt niet doorgegeven aan de browser, en dan blijft het stil.
 # Het aanmaken hieronder is alleen nog een vangnet.
-const AUDIO_BUSES := {"Music": "Muziek", "SFX": "Effecten", "Motor": "Motor en banden"}
-const AUDIO_DEFAULTS := {"Music": 0.6, "SFX": 0.8, "Motor": 0.6}
+# "Master" is het hoofdkanaal waar alle andere op uitkomen: de hoofdvolume-slider.
+const AUDIO_BUSES := {"Master": "Hoofdvolume", "Music": "Muziek", "SFX": "Effecten", "Motor": "Motor en banden"}
+const AUDIO_DEFAULTS := {"Master": 1.0, "Music": 0.6, "SFX": 0.8, "Motor": 0.6}
 const MENU_MUSIC := "res://assets/menu_music.wav"
 var music: AudioStreamPlayer
 

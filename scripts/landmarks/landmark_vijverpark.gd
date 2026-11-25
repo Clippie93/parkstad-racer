@@ -4,7 +4,7 @@ extends Node3D
 # - het Lindeplein ligt aan de weg: rood klinkerplein met een donkerder rond vlak, grijze
 #   plantenbakken (schuine kanten) met kale boompjes, betonnen bankjes, een grondfontein en
 #   lichtsnoeren tussen hoge grijze masten
-# - aan het eind van het plein (richting de bocht en het oude gemeentehuis) het nieuwe gemeentehuis: laag gebouw van gele baksteen
+# - links van het plein (gezien vanaf de weg, naar jouw luchtfoto van 25-11) het nieuwe gemeentehuis: laag gebouw van gele baksteen
 #   met een glazen pui, een zwart trappenhuis aan de pleinkant, een hogere schijf met
 #   lintramen en een toren met een stalen sierkroon
 # - achter het plein de trap met de waterval naar het park, dat lager ligt (er zit een echt
@@ -15,7 +15,7 @@ extends Node3D
 const Kit = preload("res://scripts/build_kit.gd")
 
 const OFFSET := Vector3(-6.75, 0, 33)
-const PARK_SHIFT := -16.0   # het park (plein, trap, vijver) ligt 16 m naar -x; het gemeentehuis aan +x
+const PARK_SHIFT := -16.0   # het park (plein, trap, vijver) ligt 16 m naar -x; het gemeentehuis staat links ervan (-x)
 const DEPTH := 3.5
 # het gat in de grond (inhoudsruimte): buitenrand op maaiveld en de bodem; aan de pleinkant
 # (z = 10) is het een rechte keermuur
@@ -83,8 +83,9 @@ func _pit() -> void:
 	Kit.box(root, "Plaza wall coping", Vector3((o.position.x + o.end.x) * 0.5, 0.08, PLAZA_EDGE + 0.25), Vector3(o.size.x, 0.16, 0.6), Color("cfc9bb"))
 	var c := i.get_center()
 	Kit.box(root, "Park floor", Vector3(c.x, y - 0.35, c.y), Vector3(i.size.x + 0.2, 0.7, i.size.y + 0.2), GRASS, true)
-	# hek langs de pleinrand (je rijdt het park niet in), behalve bij de trap
-	_blocker(Vector3((o.position.x + o.end.x) * 0.5, 1.0, PLAZA_EDGE + 0.3), Vector3(o.size.x, 2.0, 0.3))
+	# hek langs de pleinrand, behalve bij de trap (x -7..7): daar kun je de trap af rijden
+	_blocker(Vector3((o.position.x - 7.0) * 0.5, 1.0, PLAZA_EDGE + 0.3), Vector3(-7.0 - o.position.x, 2.0, 0.3))
+	_blocker(Vector3((7.0 + o.end.x) * 0.5, 1.0, PLAZA_EDGE + 0.3), Vector3(o.end.x - 7.0, 2.0, 0.3))
 	_rail_line(Vector3(o.position.x, 0, PLAZA_EDGE + 0.3), Vector3(-8.0, 0, PLAZA_EDGE + 0.3))
 	_rail_line(Vector3(8.0, 0, PLAZA_EDGE + 0.3), Vector3(o.end.x, 0, PLAZA_EDGE + 0.3))
 	# grindpaden rond de vijver
@@ -256,6 +257,20 @@ func _cascade(xc: float) -> void:
 		var cy: float = -DEPTH + h * 0.5
 		for side in [[xc - 4.6, 4.8, stone], [xc + 4.6, 4.8, stone], [xc, 3.6, water if k % 2 == 0 else Color("b8d6de")]]:
 			Kit.box(root, "Stair step", Vector3(side[0], cy, z1 - run * 0.5), Vector3(side[1], h, run), side[2])
+	# onzichtbare helling over de treden: je kunt de trap echt af en op rijden (eerst zakte
+	# je er doorheen, de treden waren alleen beeld)
+	var run_len: float = sqrt(14.0 * 14.0 + DEPTH * DEPTH)
+	var ramp := StaticBody3D.new()
+	ramp.name = "Stair ramp"
+	var rcs := CollisionShape3D.new()
+	var rbox := BoxShape3D.new()
+	rbox.size = Vector3(14.0, 0.3, run_len)
+	rcs.shape = rbox
+	ramp.add_child(rcs)
+	var slope: float = atan2(DEPTH, 14.0)
+	ramp.rotation.x = -slope
+	ramp.position = Vector3(xc, -DEPTH * 0.5, PLAZA_EDGE - 7.0) - Vector3(0, 0.15 / cos(slope), 0)
+	root.add_child(ramp)
 	for s in [-1.0, 1.0]:
 		var x: float = xc + s * 2.0
 		var a := Vector3(x, 0.3, PLAZA_EDGE)
@@ -282,46 +297,49 @@ func _cascade(xc: float) -> void:
 # Laag gebouw van gele baksteen met een glazen pui, een zwart trappenhuis aan de pleinkant,
 # een hogere schijf met lintramen en een toren met een stalen sierkroon.
 func _town_hall_new() -> void:
+	# Links van het plein, gezien vanaf de weg (jouw luchtfoto, 25-11): alles gespiegeld in x
+	# ten opzichte van de vorige versie (die stond rechts). H = -1 spiegelt.
+	var H := -1.0
 	var brick := Kit.mat(YELLOW_BRICK)
-	var c := Vector3(67, 0, 16)        # laag deel: x 54..80, z -8..40
+	var c := Vector3(-85, 0, 16)        # laag deel: x -98..-72, z -8..40
 	var w := 26.0
 	var d := 48.0
 	var h := 8.0
 	Kit.box(root, "New town hall", c + Vector3(0, h * 0.5 + 1.5, 0), Vector3(w, h - 3.0, d), Color.WHITE, true, brick)
 	Kit.box(root, "New town hall glass", c + Vector3(0, 1.5, 0), Vector3(w - 0.6, 3.0, d - 0.6), GLASS, true)
 	Kit.box(root, "New town hall roof edge", c + Vector3(0, h + 0.1, 0), Vector3(w + 0.3, 0.25, d + 0.3), Color("9a9c9a"))
-	# glazen pui met stijlen aan de weg- en pleinkant
+	# glazen pui met stijlen aan de weg- en pleinkant (de pleinkant is nu +x)
 	var fr := Kit.face(root, c + Vector3(0, 0, d * 0.5 - 0.3), 0.0)
-	var fp := Kit.face(root, c + Vector3(-w * 0.5 + 0.3, 0, 0), -90.0)
+	var fp := Kit.face(root, c + Vector3(w * 0.5 - 0.3, 0, 0), 90.0)
 	for f in [[fr, w], [fp, d]]:
 		var x: float = -float(f[1]) * 0.5 + 1.5
 		while x < float(f[1]) * 0.5 - 1.0:
 			Kit.box(f[0], "Mullion", Vector3(x, 1.5, 0.02), Vector3(0.12, 3.0, 0.06), Color("8a8e92"))
 			x += 2.0
-	Kit.box(fr, "Entrance canopy", Vector3(4, 3.2, 1.0), Vector3(8.0, 0.2, 2.0), Color("8a8e92"))
-	Kit.label(fr, "GEMEENTE BRUNSSUM", Vector3(4, 5.6, 0.35), 0.02, Color("3a3a3a"), 64)
-	# vierkante raampjes in een rij boven de pui (pleinkant)
-	for x in [-18.0, -14.0, -10.0, -6.0, 2.0, 6.0]:
+	Kit.box(fr, "Entrance canopy", Vector3(4 * H, 3.2, 1.0), Vector3(8.0, 0.2, 2.0), Color("8a8e92"))
+	Kit.label(fr, "GEMEENTE BRUNSSUM", Vector3(4 * H, 5.6, 0.35), 0.02, Color("3a3a3a"), 64)
+	# vierkante raampjes in een rij boven de pui (pleinkant); face-x loopt nu andersom langs z
+	for x in [18.0, 14.0, 10.0, 6.0, -2.0, -6.0]:
 		Kit.box(fp, "Small window", Vector3(x, 6.0, 0.33), Vector3(1.4, 1.2, 0.06), GLASS)
 	# zwart trappenhuis aan de pleinkant, met een raster en een groot raam
-	var st := c + Vector3(-w * 0.5 - 1.3, 0, -12.0)
+	var st := c + Vector3(w * 0.5 + 1.3, 0, -12.0)
 	Kit.box(root, "Black stair block", st + Vector3(0, 4.8, 0), Vector3(2.6, 9.6, 7.0), DARK, true)
-	var sf := Kit.face(root, st + Vector3(-1.3, 0, 0), -90.0)
+	var sf := Kit.face(root, st + Vector3(1.3, 0, 0), 90.0)
 	for k in range(5):
 		Kit.box(sf, "Stair grid", Vector3(0, 1.0 + float(k) * 1.8, 0.03), Vector3(6.6, 0.06, 0.04), Color("4a4e54"))
-	Kit.box(sf, "Stair window", Vector3(1.6, 7.6, 0.04), Vector3(3.0, 2.4, 0.05), Color("5a7480"))
+	Kit.box(sf, "Stair window", Vector3(-1.6, 7.6, 0.04), Vector3(3.0, 2.4, 0.05), Color("5a7480"))
 	# hogere schijf met lintramen (achter, kijkt naar de weg)
-	var sl := Vector3(68, 0, -2)
+	var sl := Vector3(-86, 0, -2)
 	Kit.box(root, "Office slab", sl + Vector3(0, 10.0, 0), Vector3(22.0, 20.0, 11.0), Color.WHITE, true, brick)
 	Kit.box(root, "Office slab roof", sl + Vector3(0, 20.1, 0), Vector3(22.3, 0.25, 11.3), Color("9a9c9a"))
 	var slf := Kit.face(root, sl + Vector3(0, 0, 5.5), 0.0)
-	var slp := Kit.face(root, sl + Vector3(-11.0, 0, 0), -90.0)
+	var slp := Kit.face(root, sl + Vector3(11.0, 0, 0), 90.0)
 	for y in [10.0, 13.2, 16.4]:
-		Kit.box(slf, "Ribbon window", Vector3(1.0, y, 0.03), Vector3(18.0, 1.5, 0.06), GLASS)
+		Kit.box(slf, "Ribbon window", Vector3(-1.0, y, 0.03), Vector3(18.0, 1.5, 0.06), GLASS)
 		Kit.box(slp, "Ribbon window", Vector3(0, y, 0.03), Vector3(8.0, 1.5, 0.06), GLASS)
-	Kit.box(root, "Roof plant", sl + Vector3(-3.0, 21.0, 0), Vector3(5.0, 1.6, 4.0), Color("b8b8b4"))
-	# toren met de stalen sierkroon
-	var tw := Vector3(81.5, 0, -4)
+	Kit.box(root, "Roof plant", sl + Vector3(3.0, 21.0, 0), Vector3(5.0, 1.6, 4.0), Color("b8b8b4"))
+	# toren met de stalen sierkroon (aan de buitenkant, verst van het plein)
+	var tw := Vector3(-99.5, 0, -4)
 	Kit.box(root, "Tower", tw + Vector3(0, 12.5, 0), Vector3(4.0, 25.0, 5.0), Color.WHITE, true, brick)
 	var tf := Kit.face(root, tw + Vector3(0, 0, 2.5), 0.0)
 	Kit.box(tf, "Tower slit", Vector3(0, 14.0, 0.03), Vector3(0.6, 18.0, 0.05), GLASS)
@@ -339,7 +357,7 @@ func _town_hall_new() -> void:
 	# vlaggen voor de ingang
 	var flag_cols := [Color("c8302c"), Color("f2f2ee"), Color("2a5aa8")]
 	for i in range(3):
-		var fp2 := c + Vector3(11.0 - float(i) * 1.6, 0, d * 0.5 + 3.0)
+		var fp2 := c + Vector3((11.0 - float(i) * 1.6) * H, 0, d * 0.5 + 3.0)
 		Kit.cyl(root, "Flag pole", fp2 + Vector3(0, 4.0, 0), 0.06, 0.05, 8.0, Color("d8dadc"), 6)
 		Kit.box(root, "Flag", fp2 + Vector3(0.6, 7.2, 0), Vector3(1.2, 0.8, 0.03), flag_cols[i])
 
