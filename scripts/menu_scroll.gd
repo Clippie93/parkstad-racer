@@ -6,7 +6,8 @@ extends Node
 # Is een pagina langer dan het scherm (content_h), dan kan dat ook met het muiswiel.
 const Fit = preload("res://scripts/screen_fit.gd")
 
-const MARGIN := 64.0        # ruimte boven en onder het menu (ontwerppixels)
+const MARGIN := 6.0         # kleine extra ruimte boven en onder het menu, bovenop het veilige
+                            # gebied van het scherm (ontwerppixels)
 const START_DRAG := 14.0    # zoveel moet de vinger bewegen voor het een veeg is
 
 var target: Control
@@ -19,13 +20,15 @@ var start := Vector2.ZERO
 var speed := 0.0
 var cancelling := false
 var margin := 0.0           # MARGIN op aanraakschermen, anders 0 (zoals vroeger)
+var touch := false
 var content_h := 720.0      # hoogte van de getoonde pagina in ontwerppixels
 var slider: Range = null    # schuifregelaar onder de vinger bij het neerzetten
 var slider_value := 0.0
 
 static func attach(c: Control) -> void:
 	var s = load("res://scripts/menu_scroll.gd").new()
-	s.margin = MARGIN if DisplayServer.is_touchscreen_available() else 0.0
+	s.touch = DisplayServer.is_touchscreen_available()
+	s.margin = MARGIN if s.touch else 0.0
 	s.name = "MenuScroll"
 	s.target = c
 	c.add_child(s)
@@ -40,15 +43,19 @@ func to_top() -> void:
 	_apply()
 
 func set_content_height(h: float) -> void:
-	content_h = maxf(720.0, h)
+	content_h = maxf(200.0, h)
 	to_top()
 
 # (laagste, hoogste) verschuiving: bovenaan staat de bovenkant op 'margin' van de rand,
 # onderaan de onderkant van de pagina. Past alles, dan staat het menu zoals vroeger.
 func _bounds() -> Vector2:
-	var half: float = (Fit.screen().y - 720.0) * 0.5
-	var hi: float = margin - half
-	var lo: float = 720.0 + half - margin - content_h
+	# Boven en onder alleen het echte veilige gebied (liggend op de iPhone: boven niets,
+	# onder het streepje van de thuisbalk) plus een kleine marge.
+	var fh: float = Fit.full().y
+	var half: float = (fh - 720.0) * 0.5
+	var sf: Vector4 = Fit.safe() if touch else Vector4.ZERO
+	var hi: float = margin + sf.y - half
+	var lo: float = fh - margin - sf.w - half - content_h
 	if lo >= hi:
 		var v: float = clampf(0.0, hi, lo)
 		return Vector2(v, v)

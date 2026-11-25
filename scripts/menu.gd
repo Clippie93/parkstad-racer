@@ -97,11 +97,11 @@ func _fit_page(id: String) -> void:
     var page: Control = {"race": race_page, "settings": settings_page, "profile": profile_page, "together": together_page}.get(id, null)
     if page == null:
         return
-    var bottom := 720.0
+    var bottom := 0.0
     for c in page.find_children("*", "Control", true, false):
         var ctl := c as Control
         if ctl.is_visible_in_tree():
-            bottom = maxf(bottom, ctl.get_global_rect().end.y - page.get_global_rect().position.y + 30.0)
+            bottom = maxf(bottom, ctl.get_global_rect().end.y - page.get_global_rect().position.y + 14.0)
     scroll.set_content_height(bottom)
 
 # De uitleg kan langer zijn dan het scherm: dan scrollt hij (zodra de tekst is opgemaakt).
