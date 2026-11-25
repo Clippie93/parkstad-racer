@@ -488,6 +488,32 @@ func _ground(area: Rect2) -> void:
 			if not hole:
 				Kit.box(world, "Ground", Vector3(c.x, -0.35, c.y), Vector3(w, 0.7, d), Color("5d7659"), true)
 
+# Geblokte finishlijn: twee rijen wit-zwarte vakjes over de volle breedte van de rijbaan
+# (bij de Buitenring over elke rijbaan apart, niet over de middenberm). Eerst was hij 14 m
+# breed en vielen de zwarte vakjes weg tegen het asfalt.
+func _finish_line(node: Node3D) -> void:
+	var hw: float = float(level.road_hw)
+	var spans: Array = [[-hw, -1.3], [1.3, hw]] if level.dual else [[-hw, hw]]
+	var sq := 0.75
+	var t_white: Array = []
+	var t_black: Array = []
+	for sp in spans:
+		var a: float = sp[0]
+		var b: float = sp[1]
+		var n: int = maxi(2, int(round((b - a) / sq)))
+		var w: float = (b - a) / float(n)
+		for row in range(2):
+			for k in range(n):
+				var x0: float = a + float(k) * w
+				var z0: float = -sq + float(row) * sq
+				var dst: Array = t_white if (k + row) % 2 == 0 else t_black
+				Kit._quad(dst, Vector3(x0, 0.06, z0), Vector3(x0 + w, 0.06, z0), Vector3(x0 + w, 0.06, z0 + sq), Vector3(x0, 0.06, z0 + sq))
+	for pair in [[t_white, Color("f2f2ee")], [t_black, Color("0c0c0e")]]:
+		var mi := MeshInstance3D.new()
+		mi.name = "Finish line"
+		mi.mesh = Kit._mesh_from(pair[0], Kit._two_sided(pair[1]))
+		node.add_child(mi)
+
 func _checkpoints() -> void:
 	var r = level.route
 	# grond onder de hele route
@@ -521,13 +547,11 @@ func _checkpoints() -> void:
 		for x in [-half, half]:
 			Kit.box(node, "Post", Vector3(x, 3.2, 0), Vector3(0.6, 6.4, 0.6), col)
 		Kit.box(node, "Beam", Vector3(0, 6.6, 0), Vector3(half * 2.0 + 0.6, 1.4, 0.5), col)
-		var title: String = ("FINISH  -  " if is_finish else "") + String(def["name"])
+		var title: String = String(def["name"])   # de finish heet al "START / FINISH"
 		var l := Kit.label(node, title, Vector3(0, 6.6, 0.3), 0.012, Color("1a1a1a"), 80)
 		l.modulate = Color("1a1a1a") if not is_finish else Color.WHITE
 		if is_finish:
-			for k in range(12):
-				var c := Color.WHITE if k % 2 == 0 else Color("1a1a1a")
-				Kit.box(node, "Finish line", Vector3(-6.6 + float(k) * 1.2, 0.06, 0), Vector3(1.2, 0.02, 1.2), c)
+			_finish_line(node)
 		var area := Area3D.new()
 		var cs := CollisionShape3D.new()
 		var shape := BoxShape3D.new()
