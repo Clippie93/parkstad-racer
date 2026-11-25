@@ -33,9 +33,6 @@ const LEVEL_BOOST := 0.025    # tegenstanders per level 2,5% sterker (accelerati
 # anders ~195 km/u tegen 166 km/u van de startauto, op de lange rechte stukken van de
 # Buitenring niet bij te houden. Ze worden vooral sterker in de bochten.
 const LEVEL_BOOST_SPEED := 0.0175
-# Op Moeilijk kregen ze het hele voordeel van jouw auto erbij, dus een snellere auto of
-# motor-upgrade hielp daar niets voor de topsnelheid; nu driekwart.
-const HARD_SPEED_CATCHUP := 0.75
 # Moeilijkheid (Makkelijk, Normaal, Moeilijk): niveau en auto van de tegenstanders, en de
 # tijdslimiet per stuk. Normaal is na jouw testritten iets sneller gezet (ze waren te traag).
 const DIFF_SKILL := [0.93, 1.015, 1.052]
@@ -44,6 +41,9 @@ const DIFF_LIMIT := [1.25, 1.0, 0.92]
 # Tegenstanders groeien deels mee met jouw auto: van elk voordeel t.o.v. de startauto
 # (snelheid, acceleratie, grip, remmen) krijgen zij dit deel ook. Een dure auto blijft
 # sneller, maar wint niet meer vanzelf.
+# Hoeveel van het voordeel van jouw auto (gekochte auto en upgrades) de tegenstanders
+# ook krijgen. Moeilijk = alles: daar blijft het even zwaar wat je ook koopt (jouw keuze,
+# 25-11); op Normaal en Makkelijk maken upgrades het merkbaar makkelijker.
 const DIFF_CATCHUP := [0.3, 0.5, 1.0]
 # Inhaalhulp per moeilijkheid: maximale extra topsnelheid/acceleratie voor een tegenstander
 # die achter jou ligt. Op Moeilijk kan een level dit verhogen (level.hard_catch_up).
@@ -629,9 +629,8 @@ func _rival_stats() -> Dictionary:
 	for k in ["speed", "accel", "grip", "brake"]:
 		var boost: float = LEVEL_BOOST_SPEED if k == "speed" else LEVEL_BOOST
 		var f: float = (1.0 + boost * float(Game.current_index)) * DIFF_CAR[Game.difficulty()] * hard
-		var sh: float = minf(share, HARD_SPEED_CATCHUP) if k == "speed" else share
 		var extra: float = maxf(float(mine[k]) - float(base[k]), 0.0)
-		out[k] = float(base[k]) * f + extra * sh
+		out[k] = float(base[k]) * f + extra * share
 	return out
 
 # Startopstelling: 4 rijen van 2, de speler op PLAYER_SLOT, de tegenstanders ervoor/ernaast.
