@@ -40,7 +40,7 @@ het middelpunt en heeft een verbinding met elke andere speler.
 - Bij 8 spelers moet de telefoon van de host 7 verbindingen tegelijk bijhouden.
 - Meer werk om te bouwen en lastiger te testen.
 
-**Voorstel:** beginnen met A. Het netwerkdeel van het spel maak ik zo dat de manier van
+**Gekozen (25-11): beginnen met A.** Het netwerkdeel van het spel maak ik zo dat de manier van
 verbinden eronder te vervangen is. Werkt alles, dan kan B er later bij: eerst proberen
 peer-to-peer te verbinden, en als dat niet lukt via de server (A). Zo werkt het altijd, en
 is het waar mogelijk sneller.
@@ -58,8 +58,21 @@ is het waar mogelijk sneller.
 - **Botsen tussen spelers:** ieder spel duwt alleen de eigen auto weg van de anderen. Kleine
   verschillen tussen de schermen zijn dan mogelijk; dat is gebruikelijk in racegames in de
   browser.
+- **Botsen met verkeer (jouw vraag, 25-11):** het verkeer staat op elk scherm op dezelfde
+  plek (zelfde startwaarde en raceklok, en het verkeer reageert niet op de spelers). Het
+  verschil zit in de auto van een ander: die komt ~0,1 s later binnen, en een verkeersauto
+  rijdt in die tijd 1 à 1,5 m. Daarom:
+  - de andere auto's worden getoond waar ze naar verwachting **nu** zijn (voorspeld uit
+    snelheid en richting), niet 0,1 s in het verleden; dan staan ze meestal precies goed
+    naast het verkeer, alleen op het moment van een botsing kan er een kleine sprong zijn;
+  - een botsing met het verkeer wordt ook een bericht, zodat de anderen de schok en het
+    geluid zien en horen, ook als de auto's op hun scherm net niet tegen elkaar staan.
+  Op je eigen scherm klopt je eigen botsing altijd precies.
 - **Flitspalen:** omverrijden wordt een bericht, zodat de paal bij iedereen weg is.
-  Flitsen, boetes en **politie** blijven per speler: de politie zit alleen achter jou aan.
+  Flitsen en boetes blijven per speler.
+- **Politie:** zit alleen achter de speler aan die geflitst is en wordt door diens spel
+  uitgerekend, maar de positie gaat mee over het netwerk (als een extra auto bij die
+  speler), zodat iedereen de achtervolging ziet.
 
 ## Wat er in het spel bijkomt
 

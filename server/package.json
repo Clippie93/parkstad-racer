@@ -1,0 +1,13 @@
+{
+  "name": "parkstad-racer-mp",
+  "private": true,
+  "description": "Multiplayer-server van Parkstad Racer (Cloudflare Worker + Durable Objects)",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "node test/relay_test.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "^4.168.0"
+  }
+}

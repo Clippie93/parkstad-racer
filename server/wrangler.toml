@@ -1,0 +1,14 @@
+# Multiplayer-server van Parkstad Racer: een Worker die kamercodes uitdeelt en per kamer
+# een Durable Object dat de berichten tussen de spelers doorstuurt (zie MULTIPLAYER_PLAN.md).
+name = "parkstad-racer-mp"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+
+[[durable_objects.bindings]]
+name = "ROOMS"
+class_name = "Room"
+
+# SQLite-opslag: dat is wat het gratis plan van Cloudflare toestaat
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Room"]
