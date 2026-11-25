@@ -248,7 +248,8 @@ func _front() -> void:
 	# Indeling naar jouw foto's en de luchtfoto (25-11): een rij puntgeveltjes naar het
 	# parkeerterrein onder één groot leien dak; aan het westelijke eind (-X) het houten
 	# gebouwtje met SNOWWORLD, haaks op de puntgevels, met de gevel naar het terras; de grote
-	# glazen ingang kijkt ook naar het terras en ligt iets terug, achter het hout.
+	# glazen ingang kijkt ook naar het plein, ligt aan de zuidkant (-Z) van het hout en steekt
+	# daar ~10 m voorbij (jouw bovenaanzicht, 25-11).
 	Kit.box(self, "Chalet block", Vector3(-20.0, 3.5, 27.0), Vector3(28.0, 7.0, 14.0), WHITE, true)
 	Kit.gable(self, "Chalet block roof", Vector3(-20.0, 7.0, 26.0), 18.0, 28.6, 5.5, SLATE, true)
 	for k in range(4):
@@ -256,7 +257,7 @@ func _front() -> void:
 	_name_wall(Vector3(-35.5, 0, 28.5), 19.0)
 	var ent := Node3D.new()
 	ent.name = "Entrance"
-	ent.position = Vector3(-27.0, 0, 9.5)
+	ent.position = Vector3(-37.0, 0, 9.5)     # glasgevel op x -45: steekt ~10 m voor het hout uit
 	ent.rotation_degrees.y = -90.0      # glasgevel kijkt naar -X (het terras)
 	add_child(ent)
 	_entrance(ent, Vector3.ZERO)
@@ -326,7 +327,7 @@ func _name_wall(c: Vector3, w: float) -> void:
 # Terrasmeubels: picknicktafels, statafels van tonnen en grijze parasols.
 func _terrace_furniture() -> void:
 	var wood := Color("8a6a48")
-	for t in [Vector3(-46, 0, 30), Vector3(-52, 0, 24), Vector3(-46, 0, 18), Vector3(-54, 0, 12), Vector3(-47, 0, 6)]:
+	for t in [Vector3(-46, 0, 30), Vector3(-52, 0, 24), Vector3(-58, 0, 30), Vector3(-52, 0, 36), Vector3(-46, 0, 23)]:
 		Kit.box(self, "Picnic table", t + Vector3(0, 0.75, 0), Vector3(1.0, 0.06, 2.2), wood)
 		for sx in [-0.75, 0.75]:
 			Kit.box(self, "Picnic bench", t + Vector3(sx, 0.45, 0), Vector3(0.35, 0.05, 2.2), wood)
@@ -335,7 +336,7 @@ func _terrace_furniture() -> void:
 	for t in [Vector3(-41, 0, 36), Vector3(-43, 0, 38.5), Vector3(-39.5, 0, 39)]:
 		Kit.cyl(self, "Barrel", t + Vector3(0, 0.5, 0), 0.38, 0.38, 1.0, Color("7a5434"), 10)
 		Kit.cyl(self, "Barrel top", t + Vector3(0, 1.03, 0), 0.55, 0.55, 0.06, Color("2e2b28"), 12)
-	for u in [Vector3(-49, 0, 27), Vector3(-50, 0, 15), Vector3(-44, 0, 36)]:
+	for u in [Vector3(-49, 0, 27), Vector3(-55, 0, 33), Vector3(-44, 0, 36)]:
 		Kit.cyl(self, "Parasol pole", u + Vector3(0, 1.4, 0), 0.05, 0.05, 2.8, Color("5a5550"), 6)
 		Kit.cyl(self, "Parasol", u + Vector3(0, 2.75, 0), 2.0, 0.1, 0.55, Color("8e9091"), 4)
 
