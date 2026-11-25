@@ -1,6 +1,6 @@
 # Plan: multiplayer (na v1.1)
 
-Stand: 25-11. Fase 0 (server) is klaar; fase 1 (spookauto's) is de volgende stap.
+Stand: 25-11. Fase 0 (server) is klaar; fase 1 (spookauto's) is gebouwd en wacht op de test op de iPhone.
 
 ## Jouw keuzes (25-11)
 
@@ -92,6 +92,14 @@ is het waar mogelijk sneller.
    Godot-client `scripts/net_client.gd` werkt ermee (ping ~34 ms vanaf de Mac).
 1. **Spookauto's:** twee browsers (Mac en iPhone) in hetzelfde level zien elkaar rijden.
    Nog geen lobby. Meten: vertraging, schokken en verbruik van de gratis limiet.
+   **Gebouwd (25-11):** tab "Samen" (TEST) met Nieuwe kamer / Meedoen met code; in de race
+   gaat je auto 15 keer per seconde de lijn over (47 bytes per bericht) en de anderen in
+   hetzelfde level rijden mee als spookauto met hun naam erboven, voorspeld naar "nu";
+   statusregel bovenin met de kamercode en de ping. Getest met twee Godot-vensters op de
+   Mac via de echte server: berichten komen elke 67 ms (hoogstens 77 ms), zijn bij aankomst
+   gemiddeld ~40 ms oud, ping 30-50 ms. Verbruik: Cloudflare telt 20 binnenkomende berichten
+   als één verzoek, dus een race van 3 minuten kost ~270 verzoeken per 2 spelers en ~1.100
+   bij 8 spelers. **Nog te doen:** test op de iPhone samen met de Mac (live zetten).
 2. **Lobby en start:** kamer maken en meedoen met code, lobby met hostinstellingen,
    gezamenlijk aftellen, finish en uitslag.
 3. **AI en wereld:** AI-tegenstanders van de host, flitspaal-berichten, prijzengeld,

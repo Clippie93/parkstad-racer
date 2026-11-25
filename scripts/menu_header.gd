@@ -3,7 +3,7 @@ extends RefCounted
 # Alle tabs horen bij het menu, behalve "garage": dat is een eigen scène.
 const Sfx = preload("res://scripts/sfx.gd")
 
-const TABS := [["race", "Racen"], ["garage", "Garage"], ["profile", "Profiel"], ["help", "Uitleg"], ["settings", "Instellingen"]]
+const TABS := [["race", "Racen"], ["together", "Samen"], ["garage", "Garage"], ["profile", "Profiel"], ["help", "Uitleg"], ["settings", "Instellingen"]]
 const BAR_Y := 92.0
 const TAB_H := 46.0
 const CONTENT_Y := BAR_Y + TAB_H + 24.0
@@ -51,8 +51,8 @@ static func build(parent: Control, active: String, on_tab: Callable) -> Array:
 	for t in TABS:
 		var b := Button.new()
 		b.text = String(t[1])
-		b.custom_minimum_size = Vector2(180, TAB_H)
-		b.add_theme_font_size_override("font_size", 21)
+		b.custom_minimum_size = Vector2(150, TAB_H)     # zes tabs naast elkaar
+		b.add_theme_font_size_override("font_size", 20)
 		b.focus_mode = Control.FOCUS_NONE
 		_style(b, t[0] == active)
 		var id: String = String(t[0])

@@ -40,6 +40,30 @@ func _ready() -> void:
     _setup_audio()
     _set_tab_icon()
     process_mode = Node.PROCESS_MODE_ALWAYS
+    # voor tests: meteen een kamer in (PARKSTAD_ROOM=ABCD)
+    if OS.get_environment("PARKSTAD_ROOM") != "":
+        net().join(OS.get_environment("PARKSTAD_ROOM"), player_name())
+
+# ---------------------------------------------------------------- samen racen
+# De verbinding met de multiplayer-server hangt aan Game, zodat hij blijft bestaan als
+# het menu de race opstart en terug (zie MULTIPLAYER_PLAN.md, fase 1).
+const NetClient = preload("res://scripts/net_client.gd")
+var _net: Node = null
+
+func net() -> Node:
+    if _net == null:
+        _net = NetClient.new()
+        _net.name = "Net"
+        add_child(_net)
+    return _net
+
+func in_room() -> bool:
+    return _net != null and _net.is_open() and _net.my_id != 0
+
+# Naam van het actieve profiel, voor de andere spelers.
+func player_name() -> String:
+    var n := profile_name()
+    return n if n != "" else "Speler"
 
 # ---------------------------------------------------------------- batterij
 # Beeldjes per seconde: tijdens het racen 60 (of 30 met Batterij sparen); in menu's, de

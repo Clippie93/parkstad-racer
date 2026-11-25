@@ -6,6 +6,8 @@ extends Node3D
 const ScreenFit = preload("res://scripts/screen_fit.gd")
 const Kit = preload("res://scripts/build_kit.gd")
 const TrafficCar = preload("res://scripts/traffic_car.gd")
+const NetGhosts = preload("res://scripts/net_ghosts.gd")
+var net_ghosts: Node = null
 const RivalDriver = preload("res://scripts/rival_driver.gd")
 const Police = preload("res://scripts/police.gd")
 const DutchStreets = preload("res://scripts/levels/dutch_streets.gd")
@@ -186,6 +188,12 @@ func _ready() -> void:
 	_traffic()
 	_build_police_spare()
 	_hud()
+	# samen racen: eigen auto versturen en de anderen als spookauto tonen
+	if Game.in_room():
+		net_ghosts = NetGhosts.new()
+		net_ghosts.name = "NetGhosts"
+		add_child(net_ghosts)
+		net_ghosts.setup(self)
 	await _prewarm()
 	await _loaded_step(bar, 1.0)
 	screen.queue_free()

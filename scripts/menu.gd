@@ -25,6 +25,11 @@ var race_page: Control
 var help_page: Control
 var settings_page: Control
 var profile_page: Control
+var together_page: Control
+var together_status: Label
+var together_players: Label
+var together_code: LineEdit
+var together_leave: Button
 var first_level: Button
 var help_box: VBoxContainer
 var controls_help: Label     # Besturing-kolom: tekst hangt af van toetsenbord of aanraken
@@ -43,6 +48,8 @@ func _ready() -> void:
     add_child(settings_page)
     profile_page = _profile_page()
     add_child(profile_page)
+    together_page = _together_page()
+    add_child(together_page)
     Game.play_menu_music()
     toast = _label("", 18, Color("f3df68"))
     toast.position = Vector2(LIST_X, 670)
@@ -62,6 +69,9 @@ func _show(id: String) -> void:
     help_page.visible = id == "help"
     settings_page.visible = id == "settings"
     profile_page.visible = id == "profile"
+    together_page.visible = id == "together"
+    if id == "together":
+        _refresh_together()
     if id == "race" and first_level != null:
         first_level.call_deferred("grab_focus")
     if scroll != null:
@@ -79,7 +89,7 @@ func _fit_page(id: String) -> void:
     await get_tree().process_frame
     if Game.menu_tab != id:
         return
-    var page: Control = {"race": race_page, "settings": settings_page, "profile": profile_page}.get(id, null)
+    var page: Control = {"race": race_page, "settings": settings_page, "profile": profile_page, "together": together_page}.get(id, null)
     if page == null:
         return
     var bottom := 720.0
@@ -683,6 +693,129 @@ static func _box_texture(on: bool) -> Texture2D:
                         if q.x >= 0 and q.y >= 0 and q.x < N and q.y < N:
                             img.set_pixelv(q, ink)
     return ImageTexture.create_from_image(img)
+
+# ---------------------------------------------------------------- samen racen (test)
+# Fase 1 van de multiplayer (MULTIPLAYER_PLAN.md): kamer maken of meedoen met een code.
+# Daarna kiest iedereen zelf hetzelfde level bij Racen en zie je elkaar als spookauto.
+func _together_page() -> Control:
+    var page := Control.new()
+    page.set_anchors_preset(Control.PRESET_FULL_RECT)
+    page.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    var head := _label("Samen racen", 26, Color("f3df68"))
+    head.position = Vector2(LIST_X, Header.CONTENT_Y)
+    page.add_child(head)
+    var tag := _label("TEST", 14, Color("101722"))
+    var tag_bg := ColorRect.new()
+    tag_bg.color = Color("e07b28")
+    tag_bg.position = Vector2(LIST_X + 182.0, Header.CONTENT_Y + 8.0)
+    tag_bg.size = Vector2(52, 22)
+    page.add_child(tag_bg)
+    tag.position = tag_bg.position + Vector2(8, 1)
+    page.add_child(tag)
+    var info := _label("Maak een kamer en geef de code aan je vrienden, of doe mee met hun code. Kies daarna " +
+        "allemaal hetzelfde level bij Racen: je ziet elkaar dan als spookauto. Dit is een eerste test: " +
+        "nog geen gezamenlijke start, geen botsen tussen spelers en geen uitslag samen.", 17, Color("cfd3d6"))
+    info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    info.custom_minimum_size = Vector2(780, 0)
+    info.position = Vector2(LIST_X, Header.CONTENT_Y + 46.0)
+    info.size = Vector2(780, 0)
+    page.add_child(info)
+    var y: float = Header.CONTENT_Y + 150.0
+    var make := _card_button("Nieuwe kamer", _new_room)
+    make.position = Vector2(LIST_X, y)
+    make.custom_minimum_size = Vector2(220, 52)
+    page.add_child(make)
+    together_code = LineEdit.new()
+    together_code.placeholder_text = "CODE"
+    together_code.max_length = 4
+    together_code.custom_minimum_size = Vector2(120, 52)
+    together_code.position = Vector2(LIST_X + 250.0, y)
+    together_code.add_theme_font_size_override("font_size", 24)
+    together_code.alignment = HORIZONTAL_ALIGNMENT_CENTER
+    together_code.text_submitted.connect(func(_t): _join_room())
+    page.add_child(together_code)
+    var join := _card_button("Meedoen", _join_room)
+    join.position = Vector2(LIST_X + 380.0, y)
+    join.custom_minimum_size = Vector2(160, 52)
+    page.add_child(join)
+    together_leave = _card_button("Kamer verlaten", func():
+        Game.net().close()
+        _refresh_together())
+    together_leave.position = Vector2(LIST_X + 570.0, y)
+    together_leave.custom_minimum_size = Vector2(190, 52)
+    page.add_child(together_leave)
+    together_status = _label("", 24, Color.WHITE)
+    together_status.position = Vector2(LIST_X, y + 80.0)
+    page.add_child(together_status)
+    together_players = _label("", 19, Color("cfd3d6"))
+    together_players.position = Vector2(LIST_X, y + 124.0)
+    page.add_child(together_players)
+    # bijwerken als er iets verandert in de kamer, en elke seconde (ping)
+    var net := Game.net()
+    net.welcomed.connect(_refresh_together.unbind(3))
+    net.joined.connect(_refresh_together.unbind(2))
+    net.left.connect(_refresh_together.unbind(1))
+    net.host_changed.connect(_refresh_together.unbind(1))
+    net.disconnected.connect(_refresh_together)
+    net.room_created.connect(_on_room_created)
+    net.failed.connect(_on_net_failed)
+    var timer := Timer.new()
+    timer.wait_time = 1.0
+    timer.autostart = true
+    timer.timeout.connect(func():
+        if together_page.visible:
+            _refresh_together())
+    page.add_child(timer)
+    return page
+
+func _on_room_created(code: String) -> void:
+    Game.net().join(code, Game.player_name())
+
+func _on_net_failed(reason: String) -> void:
+    toast.text = reason
+    together_status.text = ""
+    _refresh_together()
+
+func _new_room() -> void:
+    toast.text = ""
+    together_status.text = "Kamer maken..."
+    Game.net().new_room()
+
+func _join_room() -> void:
+    toast.text = ""
+    var code := together_code.text.strip_edges().to_upper()
+    # op de telefoon (web) het venstertje van de browser: daar komt het toetsenbord wel
+    if code.length() != 4 and OS.has_feature("web") and DisplayServer.is_touchscreen_available():
+        var r = JavaScriptBridge.eval("prompt(%s, %s)" % [JSON.stringify("Code van de kamer (4 letters):"), JSON.stringify("")], true)
+        if r == null:
+            return
+        code = String(r).strip_edges().to_upper()
+        together_code.text = code
+    if code.length() != 4:
+        toast.text = "Een kamercode heeft 4 letters."
+        return
+    together_status.text = "Verbinden met %s..." % code
+    Game.net().join(code, Game.player_name())
+
+func _refresh_together() -> void:
+    if together_status == null:
+        return
+    var net := Game.net()
+    together_leave.visible = Game.in_room()
+    if not Game.in_room():
+        if not together_status.text.ends_with("..."):
+            together_status.text = "Niet in een kamer."
+        together_players.text = ""
+        return
+    together_status.text = "Kamer %s  ·  jij bent speler %d%s  ·  ping %d ms" % [net.code, net.my_id,
+        " (host)" if net.is_host() else "", int(net.rtt_ms)]
+    var lines: Array = []
+    var ids: Array = net.players.keys()
+    ids.sort()
+    for id in ids:
+        lines.append("%d.  %s%s%s" % [id, net.players[id], "  (host)" if id == net.host_id else "",
+            "  ← jij" if id == net.my_id else ""])
+    together_players.text = "\n".join(lines)
 
 func _label(text: String, size: int, color: Color) -> Label:
     var l := Label.new()
