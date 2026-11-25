@@ -1,10 +1,10 @@
 # Verbeterlijst gebouwen
 
-## v1.1 (stand 25-11)
+## v1.1 (uitgebracht 25-11)
 - **Gedaan:** verkeer met de Car Kit van Kenney (CC0), in de verkeerskleuren gelakt (jouw eigen racers vond je mooier dan de gekochte modellen); balkons van de flats dicht en als één geheel; SnowWorld-naam op het hout; Glaspaleis-terras aan de achterkant.
 - **Jouw oordeel 25-11:** nieuwe gebouwen Simpelveld, Voerendaal en Beekdaelen toppie; Cortenbach en Watertoren prima; rijgedrag tevreden (heel soms nog een stotter bij zijdelings botsen); mobiele besturing dik in orde; motorkapcamera mag wegblijven.
 - **Ook gedaan:** stoomfluit: vijf losse tooten uit jouw gekozen opname (craigsmith, freesound 675313, CC0), willekeurig; vijf nieuwe auto's in de garage (Parkstad Estate, Rolduc Classic, Heuvelland Ranger met minder last van gras, Koempel Express, Buitenring R), garagelijst in twee kolommen; SnowWorld-voorkant en hotel naar jouw luchtfoto.
-- **Nog open:** Kasteel Amstenrade nog iets beter (herinneren), SnowWorld-hal als S-bocht (nice to have), rijgedrag van de nieuwe auto's door jou testen.
+- **Nog open:** Kasteel Amstenrade nog iets beter (herinneren), rijgedrag van de nieuwe auto's door jou testen. SnowWorld-hal als S-bocht: bewust gelaten (jouw keuze, 25-11).
 - **Na v1.1:** plan maken voor multiplayer.
 
 ## Op weg naar v1 (single player), stand 24-11
