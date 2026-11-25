@@ -638,6 +638,7 @@ func _apply_player_car(c: ArcadeCar) -> void:
 	c.body_color = Game.car_paint(id)
 	c.stripe_color = info["stripe"]
 	c.race_number = 1
+	c.offroad = float(info.get("offroad", 0.0))
 	_apply_stats(c, Game.car_stats(id))
 
 func _apply_stats(c: ArcadeCar, st: Dictionary) -> void:
@@ -884,8 +885,9 @@ func _physics_process(_delta: float) -> void:
 	var off: bool = float(res[0]) > float(level.road_hw) + OFF_ROAD_MARGIN
 	_slipstream(_delta)
 	car.off_road = off
-	car.surface_grip = OFF_GRIP if off else 1.0
-	car.surface_speed = OFF_SPEED if off else 1.0
+	# naast de weg: minder grip en topsnelheid, minder voor een terreinauto (offroad)
+	car.surface_grip = lerpf(OFF_GRIP, 1.0, car.offroad) if off else 1.0
+	car.surface_speed = lerpf(OFF_SPEED, 1.0, car.offroad) if off else 1.0
 
 func _process(delta: float) -> void:
 	if loading:

@@ -7,7 +7,7 @@ const Header = preload("res://scripts/menu_header.gd")
 const Catalog = preload("res://scripts/cars_catalog.gd")
 
 var view_id := ""            # auto die je bekijkt (hoeft niet van jou te zijn)
-var car_list: VBoxContainer
+var car_list: GridContainer      # twee kolommen: 10 auto's passen zonder scrollen
 var info_box: VBoxContainer
 var preview_root: Node3D
 var preview_car: ArcadeCar
@@ -15,7 +15,7 @@ var spin := 0.0
 var toast: Label
 
 # Maximale waarden voor de balkjes (snelste auto, volledig opgewaardeerd).
-const MAX_STATS := {"speed": 70.0, "accel": 23.0, "grip": 22.0, "brake": 50.0}
+const MAX_STATS := {"speed": 75.0, "accel": 25.0, "grip": 24.0, "brake": 55.0}   # ruimte voor de Buitenring R met alle upgrades
 
 func _ready() -> void:
     Fit.center(self)
@@ -26,10 +26,12 @@ func _ready() -> void:
         if id != "garage":
             Game.go_menu())
     Game.play_menu_music()
-    car_list = VBoxContainer.new()
+    car_list = GridContainer.new()
+    car_list.columns = 2
     car_list.position = Vector2(60, 162)
-    car_list.size = Vector2(300, 0)
-    car_list.add_theme_constant_override("separation", 6)
+    car_list.size = Vector2(304, 0)
+    car_list.add_theme_constant_override("h_separation", 6)
+    car_list.add_theme_constant_override("v_separation", 6)
     add_child(car_list)
 
     # 3D-voorbeeld
@@ -117,8 +119,9 @@ func _refresh() -> void:
         var id: String = String(info["id"])
         var b := Button.new()
         b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-        b.custom_minimum_size = Vector2(300, 48)
-        b.add_theme_font_size_override("font_size", 17)
+        b.custom_minimum_size = Vector2(149, 52)
+        b.clip_text = true
+        b.add_theme_font_size_override("font_size", 14)
         var status: String
         if id == Game.selected_car():
             status = "IN GEBRUIK"
@@ -126,7 +129,7 @@ func _refresh() -> void:
             status = "in bezit"
         else:
             status = "gratis (testmodus)" if Game.test_mode() else Game.format_money(int(info["price"]))
-        b.text = "%s\n   %s" % [info["name"], status]
+        b.text = "%s\n%s" % [info["name"], status]
         if id == view_id:
             b.add_theme_color_override("font_color", Color("f3df68"))
         b.pressed.connect(_view.bind(id))

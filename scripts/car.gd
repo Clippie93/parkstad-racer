@@ -88,6 +88,8 @@ const SLIP_ACCEL := 0.7     # +70% acceleratie (vooral merkbaar vlak onder de to
 var slipstream_top_bonus := SLIP_TOP
 var slipstream_coast := SLIP_COAST
 var surface_speed := 1.0
+# 0..1: hoeveel minder last deze auto heeft van gras en berm (Heuvelland Ranger 0,6)
+var offroad := 0.0
 var off_road := false
 # Hoe hard de banden slippen (0..1): zijwaarts glijden, een donut of de handrem op snelheid.
 # Voor het piepgeluid (car_audio.gd) en de bandenrook.
