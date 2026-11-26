@@ -10,7 +10,11 @@
 //   GET  /reports?n=50     -> de laatste rapporten (alleen met Authorization: Bearer <REPORT_KEY>)
 //   POST /event            -> anonieme gebeurtenis van het spel (open, race_start, race_end)
 //   GET  /stats?days=30    -> opgetelde statistieken (zelfde sleutel als /reports)
-//   GET  /dashboard        -> de statistiekenpagina (vraagt zelf om de sleutel)
+//   GET  /dashboard        -> de statistiekenpagina (inloggen met gebruikersnaam en wachtwoord)
+//   POST /login            -> inloggen (DASHBOARD_USER / DASHBOARD_PASSWORD, geheimen op Cloudflare);
+//                             geeft een cookie dat 30 dagen geldig is
+//   GET  /logout           -> uitloggen
+// /stats en /reports mogen met dat cookie, of met Authorization: Bearer <REPORT_KEY> (tools/reports.sh).
 //
 // Berichten van de server (tekst, JSON):
 //   {"t":"welcome","id":1,"host":1,"code":"ABCD","players":[{"id":1,"name":"Cliff"}]}
@@ -55,6 +59,52 @@ function cleanEvent(d) {
 		boot_ms: num(d.boot_ms), load_ms: num(d.load_ms), prewarm_ms: num(d.prewarm_ms), fps: num(d.fps), slow: num(d.slow),
 		gpu: str(d.gpu, 60), gfx: str(d.gfx, 8),
 	};
+}
+
+
+// ---- inloggen voor de statistiekenpagina ----
+// Het cookie is "<verloopt>.<handtekening>": een HMAC met REPORT_KEY, dus niet na te maken
+// zonder die sleutel, en er staat niets persoonlijks in.
+const SESSION_DAYS = 30;
+const enc = new TextEncoder();
+
+async function hmac(env, text) {
+	const key = await crypto.subtle.importKey("raw", enc.encode("sessie:" + env.REPORT_KEY), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+	const sig = await crypto.subtle.sign("HMAC", key, enc.encode(text));
+	return btoa(String.fromCharCode(...new Uint8Array(sig))).replace(/[+/=]/g, (c) => ({ "+": "-", "/": "_", "=": "" }[c]));
+}
+
+// vergelijken in vaste tijd (geen hint via de reactietijd)
+async function same(a, b) {
+	const [x, y] = await Promise.all([crypto.subtle.digest("SHA-256", enc.encode(String(a))), crypto.subtle.digest("SHA-256", enc.encode(String(b)))]);
+	const u = new Uint8Array(x), v = new Uint8Array(y);
+	let d = 0;
+	for (let i = 0; i < u.length; i++) d |= u[i] ^ v[i];
+	return d === 0;
+}
+
+async function allowed(request, env) {
+	if (!env.REPORT_KEY) return false;
+	const auth = request.headers.get("Authorization") || "";
+	if (auth.startsWith("Bearer ") && (await same(auth.slice(7), env.REPORT_KEY))) return true;
+	const m = (request.headers.get("Cookie") || "").match(/(?:^|;\s*)pr_session=([0-9]+)\.([A-Za-z0-9_-]+)/);
+	if (!m || parseInt(m[1], 10) < Date.now()) return false;
+	return same(m[2], await hmac(env, m[1]));
+}
+
+async function login(request, env) {
+	const form = await request.formData().catch(() => null);
+	const user = form ? String(form.get("username") || "") : "";
+	const pass = form ? String(form.get("password") || "") : "";
+	const ok = env.DASHBOARD_USER && env.DASHBOARD_PASSWORD && env.REPORT_KEY &&
+		(await same(user.trim().toLowerCase(), String(env.DASHBOARD_USER).toLowerCase())) && (await same(pass, env.DASHBOARD_PASSWORD));
+	if (!ok) {
+		await new Promise((r) => setTimeout(r, 1200));   // raden kost tijd
+		return new Response(null, { status: 303, headers: { Location: "dashboard?fout=1" } });
+	}
+	const until = String(Date.now() + SESSION_DAYS * 86400000);
+	const cookie = `pr_session=${until}.${await hmac(env, until)}; Path=/; Max-Age=${SESSION_DAYS * 86400}; HttpOnly; Secure; SameSite=Strict`;
+	return new Response(null, { status: 303, headers: { Location: "dashboard", "Set-Cookie": cookie } });
 }
 
 export default {
@@ -102,8 +152,7 @@ export default {
 			return new Response("ok", { headers: CORS });
 		}
 		if (url.pathname === "/reports") {
-			const auth = request.headers.get("Authorization") || "";
-			if (!env.REPORT_KEY || auth !== "Bearer " + env.REPORT_KEY) {
+			if (!(await allowed(request, env))) {
 				return new Response("Geen toegang", { status: 401, headers: CORS });
 			}
 			const box = env.REPORTS.get(env.REPORTS.idFromName("all"));
@@ -131,13 +180,18 @@ export default {
 			return new Response("ok", { headers: CORS });
 		}
 		if (url.pathname === "/stats") {
-			const auth = request.headers.get("Authorization") || "";
-			if (!env.REPORT_KEY || auth !== "Bearer " + env.REPORT_KEY) {
+			if (!(await allowed(request, env))) {
 				return new Response("Geen toegang", { status: 401, headers: CORS });
 			}
 			const box = env.STATS.get(env.STATS.idFromName("all"));
 			const res = await box.fetch("https://stats/sum?days=" + (url.searchParams.get("days") || "30"));
 			return new Response(res.body, { headers: { ...CORS, "Content-Type": "application/json" } });
+		}
+		if (url.pathname === "/login" && request.method === "POST") {
+			return login(request, env);
+		}
+		if (url.pathname === "/logout") {
+			return new Response(null, { status: 303, headers: { Location: "dashboard", "Set-Cookie": "pr_session=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict" } });
 		}
 		if (url.pathname === "/dashboard") {
 			return new Response(DASHBOARD, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } });

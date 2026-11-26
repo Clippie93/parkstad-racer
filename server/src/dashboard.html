@@ -6,8 +6,8 @@
 <meta name="robots" content="noindex">
 <title>Parkstad Racer statistieken</title>
 <style>
-/* Statistieken van Parkstad Racer: haalt /stats en /reports op met de sleutel uit
-   server/.report_key (één keer invullen, de browser onthoudt hem). */
+/* Statistieken van Parkstad Racer: haalt /stats en /reports op; inloggen met gebruikersnaam
+   en wachtwoord (geheimen DASHBOARD_USER en DASHBOARD_PASSWORD op Cloudflare). */
 :root {
 	color-scheme: dark;
 	--bg: #101722; --card: #18202e; --line: #2a3344; --grid: #232c3b;
@@ -58,7 +58,9 @@ th:first-child, td:first-child { text-align: left; }
 #tip { position: fixed; pointer-events: none; background: var(--text); color: var(--bg); border-radius: 8px; padding: 7px 10px; font-size: 13px; line-height: 1.35; opacity: 0; transition: opacity .1s; z-index: 10; max-width: 260px; }
 #tip b { font-weight: 700; }
 .key { max-width: 440px; margin: 80px auto; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 24px; }
-.key input { width: 100%; font: inherit; padding: 10px 12px; border-radius: 9px; border: 1px solid var(--line); background: var(--bg); color: var(--text); margin: 12px 0; }
+.key label { display: block; margin-top: 10px; }
+.out { color: var(--muted); font-size: 13px; }
+.key input { width: 100%; font: inherit; padding: 10px 12px; border-radius: 9px; border: 1px solid var(--line); background: var(--bg); color: var(--text); margin: 4px 0 8px; }
 .key button, .btn { font: inherit; background: var(--accent); color: #111723; border: 0; border-radius: 9px; padding: 9px 16px; font-weight: 700; cursor: pointer; }
 .rep { border-top: 1px solid var(--grid); padding: 10px 0; font-size: 14px; }
 .rep:first-child { border-top: 0; }
@@ -95,7 +97,6 @@ th:first-child, td:first-child { text-align: left; }
 	var tip = document.getElementById('tip');
 	var days = 30;
 	try { days = parseInt(localStorage.getItem('pr-days'), 10) || 30; } catch (e) {}
-	function key() { try { return localStorage.getItem('pr-key') || ''; } catch (e) { return ''; } }
 	function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
 	function fmt(n) { return (n || 0).toLocaleString('nl-NL'); }
 	function pct(a, b) { return b ? Math.round(100 * a / b) + '%' : '-'; }
@@ -115,34 +116,33 @@ th:first-child, td:first-child { text-align: left; }
 		tip.style.left = x + 'px'; tip.style.top = y + 'px'; tip.style.opacity = 1;
 	});
 
-	function askKey(msg) {
-		app.innerHTML = '<div class="key"><h1><b>PARKSTAD RACER</b> <span>statistieken</span></h1>'
-			+ '<p class="muted">' + (msg || 'Vul de sleutel in (server/.report_key). Deze browser onthoudt hem.') + '</p>'
-			+ '<input id="k" type="password" placeholder="sleutel" autocomplete="off"><button id="go">Openen</button></div>';
-		document.getElementById('go').onclick = function () {
-			try { localStorage.setItem('pr-key', document.getElementById('k').value.trim()); } catch (e) {}
-			load();
-		};
+	/* inloggen: een gewoon formulier, zodat de wachtwoordbeheerder het kan invullen en onthouden */
+	function askLogin() {
+		var fout = location.search.indexOf('fout=1') >= 0;
+		app.innerHTML = '<form class="key" method="post" action="login"><h1><b>PARKSTAD RACER</b> <span>statistieken</span></h1>'
+			+ '<p class="muted">' + (fout ? 'Gebruikersnaam of wachtwoord klopt niet.' : 'Log in om de statistieken te bekijken.') + '</p>'
+			+ '<label class="muted" for="u">Gebruikersnaam</label><input id="u" name="username" autocomplete="username" autocapitalize="none" required>'
+			+ '<label class="muted" for="p">Wachtwoord</label><input id="p" name="password" type="password" autocomplete="current-password" required>'
+			+ '<button type="submit">Inloggen</button></form>';
 	}
 
 	function get(path) {
-		return fetch(path, { headers: { Authorization: 'Bearer ' + key() } }).then(function (r) {
-			if (r.status === 401) throw new Error('key');
+		return fetch(path, { credentials: 'same-origin' }).then(function (r) {
+			if (r.status === 401) throw new Error('login');
 			return r.json();
 		});
 	}
 
+	var loggedIn = false;
 	function load() {
-		if (!key()) { askKey(); return; }
 		Promise.all([get('stats?days=' + days), get('reports?n=12').catch(function () { return []; })]).then(function (res) {
+			loggedIn = true;
+			if (location.search) history.replaceState(null, '', location.pathname);
 			render(res[0], res[1]);
 		}).catch(function (e) {
-			if (e.message === 'key') {
-				try { localStorage.removeItem('pr-key'); } catch (x) {}
-				askKey('Die sleutel klopt niet. Probeer het nog eens.');
-			} else {
-				app.innerHTML = '<div class="key">Kon de statistieken niet laden: ' + esc(e.message) + '</div>';
-			}
+			loggedIn = false;
+			if (e.message === 'login') askLogin();
+			else app.innerHTML = '<div class="key">Kon de statistieken niet laden: ' + esc(e.message) + '</div>';
 		});
 	}
 
@@ -311,7 +311,7 @@ th:first-child, td:first-child { text-align: left; }
 		var seg = [7, 30, 90, 365].map(function (d) { return '<button data-d="' + d + '" class="' + (d === days ? 'on' : '') + '">' + (d === 365 ? '1 jaar' : d + ' dagen') + '</button>'; }).join('');
 		app.innerHTML = '<header><h1><b>PARKSTAD RACER</b> <span>statistieken</span></h1>'
 			+ '<span class="muted">' + shortDay(st.since) + ' t/m ' + shortDay(st.today) + ' · ververst ' + new Date().toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }) + '</span>'
-			+ '<div class="seg">' + seg + '</div></header>'
+			+ '<div class="seg">' + seg + '</div><a class="out" href="logout">Uitloggen</a></header>'
 			+ '<div class="kpis">'
 			+ kpi(fmt(t.players_today), 'Spelers vandaag')
 			+ kpi(fmt(t.players_7), 'Spelers deze week', 'laatste 7 dagen')
@@ -347,8 +347,8 @@ th:first-child, td:first-child { text-align: left; }
 
 	load();
 	var rt;
-	window.addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(load, 300); });
-	setInterval(function () { if (key() && !document.hidden) load(); }, 60000);
+	window.addEventListener('resize', function () { if (loggedIn) { clearTimeout(rt); rt = setTimeout(load, 300); } });
+	setInterval(function () { if (loggedIn && !document.hidden) load(); }, 60000);
 })();
 </script>
 </body>
