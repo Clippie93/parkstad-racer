@@ -339,6 +339,7 @@ func _reset_on_road() -> void:
     car.global_transform = Transform3D(route.basis_at(s), p)
     car.drive_speed = 8.0
     car.slide = Vector3.ZERO
+    car.nudge = Vector3.ZERO
     car.velocity = Vector3.ZERO
 
 # Inhaalhulp (race.catch_up_boost): ligt de speler voor, dan krijgt deze tegenstander wat

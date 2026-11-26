@@ -40,6 +40,12 @@ var drive_speed := 0.0
 var steer_state := 0.0             # geleidelijk ingestuurde stuuruitslag (-1..1)
 @export var steer_rate := 4.5      # hoe snel het stuur naar vol uitslag gaat (per seconde)
 var slide := Vector3.ZERO          # zijwaartse (glij)snelheid, wereldcoördinaten
+# Zijwaartse duw van een andere auto: schuift de auto opzij en dempt snel uit. Telt niet als
+# glijden, dus de neus draait er niet van mee (een tikje opzij werd eerst een drift waarna de
+# auto heen en weer slingerde).
+var nudge := Vector3.ZERO
+const NUDGE_DAMP := 6.0            # per seconde: na ~0,4 s is de duw weg
+const NUDGE_MAX := 4.0             # m/s
 var controls_enabled := true
 signal bumped(power: float)
 var bump_count := 0   # aantal botsingen (voor de race-statistiek)
@@ -190,6 +196,7 @@ func reset_to_start() -> void:
     global_transform = start_transform
     drive_speed = 0.0
     slide = Vector3.ZERO
+    nudge = Vector3.ZERO
     velocity = Vector3.ZERO
     slipstream = 0.0
     camera_yaw = global_rotation.y
@@ -314,8 +321,11 @@ func _physics_process(delta: float) -> void:
         var moving: float = Vector2(velocity.x, velocity.z).length()
         _smoke(sk > 0.35 and moving > 5.0 and not off_road)
 
-    velocity.x = forward.x * drive_speed + slide.x
-    velocity.z = forward.z * drive_speed + slide.z
+    nudge *= exp(-NUDGE_DAMP * delta)
+    if nudge.length_squared() < 0.0025:
+        nudge = Vector3.ZERO
+    velocity.x = forward.x * drive_speed + slide.x + nudge.x
+    velocity.z = forward.z * drive_speed + slide.z + nudge.z
     velocity.y = -1.0 if is_on_floor() else velocity.y - 20.0 * delta
     move_and_slide()
     _tilt_to_ground(delta)
@@ -389,6 +399,7 @@ func _resolve_collisions(forward: Vector3) -> void:
     var impact_speed := 0.0
     var motion: Vector3 = forward * drive_speed + slide
     motion.y = 0.0
+    var car_dv := Vector3.ZERO     # wat andere racers ons geven: vooruit/achteruit en een duw opzij
     var touched := false
     var turned := false
     var step_out := 0.0
@@ -437,7 +448,7 @@ func _resolve_collisions(forward: Vector3) -> void:
             var lon: float = d.dot(fw)
             if same_way and absf(lat) > SIDE_BY_SIDE_LAT and absf(lon) < SIDE_BY_SIDE_LON:
                 n = -rt * signf(lat)
-        var rel: Vector3 = motion - ov
+        var rel: Vector3 = motion + nudge - ov
         var into: float = -rel.dot(n)
         if into <= 0.0:
             continue
@@ -449,18 +460,22 @@ func _resolve_collisions(forward: Vector3) -> void:
             # een andere racer geeft mee: allebei de helft (achterop: hij wordt geduwd,
             # opzij: hij schuift een stukje mee)
             other.push(-n * into * 0.5)
-            motion += n * into * 0.5
+            car_dv += n * into * 0.5
             # schuren: wrijving op het snelheidsverschil langs elkaar, ook gedeeld (de
             # snellere wordt iets afgeremd, de langzamere iets meegetrokken)
             var tr: Vector3 = rel - n * rel.dot(n)
             var trl: float = tr.length()
             if trl > 0.01:
                 var fr: float = minf(trl, CAR_FRICTION * into)
-                motion -= tr / trl * fr * 0.5
+                car_dv -= tr / trl * fr * 0.5
                 other.push(tr / trl * fr * 0.5)
             continue
         else:
             motion += n * (into + bounce)
+            # niet verder de muur of het verkeer in geduwd worden
+            var nin: float = nudge.dot(n)
+            if nin < 0.0:
+                nudge -= n * nin
         var nn: float = motion.dot(n)
         var tang: Vector3 = motion - n * nn
         # wrijving langs het oppervlak, evenredig met hoe hard je erin stoot (niet per frame)
@@ -479,6 +494,8 @@ func _resolve_collisions(forward: Vector3) -> void:
         drive_speed = motion.dot(f)
         slide = motion - f * drive_speed
         slide.y = 0.0
+        if car_dv != Vector3.ZERO:
+            _take_push(car_dv)
 
     if impact_speed > BUMP_MIN_SPEED:
         bump_count += 1
@@ -486,11 +503,18 @@ func _resolve_collisions(forward: Vector3) -> void:
 
 # Snelheidsverandering van buitenaf (geduwd door een andere auto).
 func push(dv: Vector3) -> void:
+    _take_push(dv)
+
+# Vooruit/achteruit gaat naar de rijsnelheid (achterop geduwd), opzij wordt een korte duw.
+func _take_push(dv: Vector3) -> void:
     var f := -global_transform.basis.z
-    var m: Vector3 = f * drive_speed + slide + Vector3(dv.x, 0.0, dv.z)
-    drive_speed = m.dot(f)
-    slide = m - f * drive_speed
-    slide.y = 0.0
+    dv.y = 0.0
+    var fwd: float = dv.dot(f)
+    drive_speed += fwd
+    nudge += dv - f * fwd
+    nudge.y = 0.0
+    if nudge.length() > NUDGE_MAX:
+        nudge = nudge.normalized() * NUDGE_MAX
 
 func speed_kmh() -> int:
     return roundi(abs(drive_speed) * 3.6)
