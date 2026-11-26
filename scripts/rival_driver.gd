@@ -15,6 +15,7 @@ var lane := 3.4
 var lane_target := 3.4
 var hint := 0
 var s := 0.0
+const COOL_SPEED := 13.0   # uitrijronde na de finish: ~47 km/u
 var lap := 0          # aantal keer over de finishlijn
 var finished := false
 var finish_time := 0.0
@@ -88,13 +89,14 @@ func _physics_process(delta: float) -> void:
         finished = true
         finish_time = race.race_clock
         race.on_rival_finished(self)
-    if finished or race.state == 0:   # 0 = aftellen
+    if race.state == 0:   # 0 = aftellen
         car.ai_throttle = 0.0
-        # na de finish uitrollen tot stilstand; niet blijven remmen, want rem bij stilstand
-        # is achteruit (ze reden met 43 km/u achteruit de berm in)
-        car.ai_brake = 0.4 if finished and car.drive_speed > 1.5 else 0.0
+        car.ai_brake = 0.0
         car.ai_steer = _steer_to(s + maxf(14.0, absf(car.drive_speed) * 0.8))
         return
+    # Na de finish een rustige uitrijronde (zie COOL_SPEED) in de eigen strook. Vroeger
+    # rolden ze uit tot stilstand midden op de weg: dan stond er vlak na de finish een rij
+    # auto's waar jij in je laatste ronde niet langs kon (Simpelveld, op Moeilijk).
 
     # vastgelopen (tegen een muur, verkeerde kant op)? Na 4 s terugzetten op de weg, zoals R.
     stuck_timer += delta
@@ -113,7 +115,11 @@ func _physics_process(delta: float) -> void:
 
     if _recover(delta):
         return
-    _catch_up()
+    if finished:
+        car.max_forward_speed = base_top
+        car.acceleration = base_accel
+    else:
+        _catch_up()
     var v: float = absf(car.drive_speed)
     # snelheid: het ideale profiel houdt al rekening met remmen voor de volgende bocht,
     # dus alleen een klein stukje vooruit kijken (reactietijd). Vroeger was dat ~1,3 s:
@@ -128,6 +134,8 @@ func _physics_process(delta: float) -> void:
     # in de slipstream kunnen ze op rechte stukken wat harder (net als jij)
     want *= 1.0 + car.SLIP_TOP * car.slipstream
     want = minf(want, _traffic_limit(v))
+    if finished:
+        want = minf(want, COOL_SPEED)
     abort_t = maxf(0.0, abort_t - delta)
     lane = move_toward(lane, lane_target, (2.6 + v * 0.06) * (1.8 if abort_t > 0.0 else 1.0) * delta)
     # ver naast de weg (na een klap): onder een flauwe hoek terug, anders schiet hij met
