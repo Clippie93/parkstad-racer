@@ -539,6 +539,7 @@ func town_sign(text: String, s: float, side := 1.0, dialect := "", sub_white := 
     Kit.box(f, "Town sign border", Vector3(0, 2.75, 0), Vector3(3.0, 1.1, 0.06), white)
     Kit.box(f, "Town sign", Vector3(0, 2.75, 0.02), Vector3(2.86, 0.96, 0.04), blue)
     Kit.label(f, text, Vector3(0, 2.75, 0.05), _fit(text, 2.6, 0.008), white, 90)
+    _sign_collider(f, Vector3(0, 1.65, 0), Vector3(3.0, 3.3, 0.2))
     if dialect != "":
         var bg: Color = white if sub_white else blue
         var ink: Color = blue if sub_white else white
@@ -581,7 +582,22 @@ func town_board(s: float, side: float, frame_color: Color, panels: Array) -> voi
         top += dy
     for x in [-w * 0.5 - 0.1, w * 0.5 + 0.1]:
         Kit.box(f, "Sign frame post", Vector3(x, top * 0.5, 0), Vector3(0.14, top, 0.14), frame_color, true)
+    # de borden zelf botsen ook: een onzichtbaar blok tussen de palen, tot de grond (tussen
+    # de palen door of onder het bord door rijden kan dan niet)
+    _sign_collider(f, Vector3(0, top * 0.5, 0), Vector3(w + 0.34, top, 0.2))
     Kit.box(f, "Sign frame top", Vector3(0, top - 0.07, 0), Vector3(w + 0.34, 0.14, 0.14), frame_color)
+
+# Onzichtbaar botsblok voor een bord (lokaal in f); de palen botsen al zelf.
+func _sign_collider(f: Node3D, center: Vector3, size: Vector3) -> void:
+    var body := StaticBody3D.new()
+    body.name = "Sign collider"
+    var cs := CollisionShape3D.new()
+    var shape := BoxShape3D.new()
+    shape.size = size
+    cs.shape = shape
+    body.add_child(cs)
+    body.position = center
+    f.add_child(body)
 
 # Bouwt één paneel met de bovenkant op hoogte y; geeft de hoogte terug.
 func _panel(f: Node3D, pn: Array, y: float, w: float, blue: Color, white: Color, red: Color, black: Color) -> float:
