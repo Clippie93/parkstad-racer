@@ -381,6 +381,10 @@ const WALL_BOUNCE_MAX := 3.0    # m/s
 const WALL_ALIGN := 0.35
 const WALL_FRICTION := 0.6      # snelheidsverlies langs de muur per m/s inslag
 const CAR_FRICTION := 0.25        # deel van de hoek met de muur dat de neus per contact meedraait
+# Schuren langs een andere auto kost hooguit zoveel snelheid per seconde (m/s²). De wrijving
+# hierboven gold per beeldje zolang je elkaar raakte: langs een tegenstander schuren kostte
+# zo soms meer dan 100 km/u in een halve seconde.
+const CAR_RUB := 7.0
 # Schuren langs een rij losse gebouwen/muren die een paar cm verspringen: de neus bleef dan
 # achter de hoek van het volgende blok haken en de auto stond in één klap stil of werd naar
 # achteren geduwd (stotter). Steekt zo'n hoek minder dan STEP_OUT_MAX uit de muur waar je net
@@ -466,7 +470,7 @@ func _resolve_collisions(forward: Vector3) -> void:
             var tr: Vector3 = rel - n * rel.dot(n)
             var trl: float = tr.length()
             if trl > 0.01:
-                var fr: float = minf(trl, CAR_FRICTION * into)
+                var fr: float = minf(minf(trl, CAR_FRICTION * into), CAR_RUB * 2.0 * get_physics_process_delta_time())
                 car_dv -= tr / trl * fr * 0.5
                 other.push(tr / trl * fr * 0.5)
             continue
@@ -481,7 +485,10 @@ func _resolve_collisions(forward: Vector3) -> void:
         # wrijving langs het oppervlak, evenredig met hoe hard je erin stoot (niet per frame)
         var tl: float = tang.length()
         if tl > 0.01:
-            tang *= maxf(0.0, tl - (CAR_FRICTION if is_car else WALL_FRICTION) * into) / tl
+            var loss: float = WALL_FRICTION * into
+            if is_car:
+                loss = minf(CAR_FRICTION * into, CAR_RUB * get_physics_process_delta_time())
+            tang *= maxf(0.0, tl - loss) / tl
         motion = tang + n * nn
         if not is_car and not turned and head_on < 0.7 and tang.length() > 3.0 and tang.dot(forward) > 0.0:
             rotate_y(forward.signed_angle_to(tang.normalized(), Vector3.UP) * WALL_ALIGN)
