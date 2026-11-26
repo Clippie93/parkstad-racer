@@ -35,6 +35,12 @@ static func web_stage(stage: String) -> void:
     if OS.has_feature("web"):
         JavaScriptBridge.eval("window.parkstadVersion = %s; window.parkstadStage && window.parkstadStage(%s)" % [JSON.stringify(version()), JSON.stringify(stage)], true)
 
+# Webversie: anonieme gebeurtenis voor de statistieken (zie /event in server/src/index.js):
+# geen naam, alleen een willekeurig apparaatnummer, het soort apparaat en wat er gebeurt.
+static func web_event(kind: String, data: Dictionary = {}) -> void:
+    if OS.has_feature("web"):
+        JavaScriptBridge.eval("window.parkstadEvent && window.parkstadEvent(%s, %s)" % [JSON.stringify(kind), JSON.stringify(data)], true)
+
 static func version() -> String:
     return String(ProjectSettings.get_setting("application/config/version", ""))
 var _cfg := ConfigFile.new()
@@ -46,6 +52,8 @@ func _ready() -> void:
     _setup_audio()
     _set_tab_icon()
     process_mode = Node.PROCESS_MODE_ALWAYS
+    web_stage("start")
+    web_event("open")
     # voor tests: meteen een kamer in (PARKSTAD_ROOM=ABCD)
     if OS.get_environment("PARKSTAD_ROOM") != "":
         net().join(OS.get_environment("PARKSTAD_ROOM"), player_name())

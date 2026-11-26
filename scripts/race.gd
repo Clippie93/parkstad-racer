@@ -210,6 +210,7 @@ func _ready() -> void:
 	if free:
 		state = State.RACING
 		car.controls_enabled = true
+		_race_event_start()
 		_big(String(Game.current_level()["name"]).to_upper(), 1.6, Color("f3df68"))
 	loaded.emit()
 
@@ -646,6 +647,29 @@ func _leg_time(s0: float, s1: float) -> float:
 func _exit_tree() -> void:
 	if ref_car != null:
 		ref_car.free()
+	# weggegaan tijdens de race (menu, opnieuw, garage)
+	if _ev_started and not _ev_ended:
+		_race_event("quit", 0)
+
+# Statistieken: start en afloop van elke race (anoniem, alleen in de webversie).
+var _ev_started := false
+var _ev_ended := false
+
+func _race_event_start() -> void:
+	_ev_started = true
+	Game.web_event("race_start", {"lvl": String(Game.current_level()["id"]), "mode": _ev_mode(),
+		"diff": Game.difficulty(), "car": "john" if (Game.mp_active() and String(Game.mp.get("rule", "")) == "equal") else Game.selected_car(),
+		"n": 1 + rivals.size() + (net_ghosts.rows().size() if net_ghosts != null else 0)})
+
+func _race_event(res: String, pos: int) -> void:
+	if not _ev_started or _ev_ended:
+		return
+	_ev_ended = true
+	Game.web_event("race_end", {"lvl": String(Game.current_level()["id"]), "mode": _ev_mode(), "diff": Game.difficulty(),
+		"res": res, "pos": pos, "secs": snappedf(elapsed, 0.01), "cp": next_cp + (lap - 1) * cp_s.size()})
+
+func _ev_mode() -> String:
+	return "free" if free else ("mp" if Game.mp_active() else "race")
 
 # Jouw auto uit de garage: model, kleur en rijwaarden inclusief upgrades.
 func _apply_player_car(c: ArcadeCar) -> void:
@@ -967,6 +991,7 @@ func _process(delta: float) -> void:
 				for d in rivals:
 					d.car.controls_enabled = true
 				_big("GO!", 0.9, Color("7be07b"))
+				_race_event_start()
 		State.RACING:
 			if free:
 				_landmarks()
@@ -1057,6 +1082,7 @@ func _finish() -> void:
 	for i in range(rows.size()):
 		if rows[i]["name"] == PLAYER_NAME:
 			pos = i + 1
+	_race_event("finish", pos)
 	var id: String = String(Game.current_level()["id"])
 	var medal: int = _medal_for(pos)
 	Sfx.play(self, "finish" if pos <= 3 else "fail", -3.0)
@@ -1088,6 +1114,7 @@ func _finish_mp() -> void:
 	var pos: int = net_ghosts.finish_position()
 	finish_order.append(PLAYER_NAME)
 	net_ghosts.send_finish(elapsed)
+	_race_event("finish", pos)
 	Sfx.play(self, "finish" if pos <= 3 else "fail", -3.0)
 	var n: int = (Game.mp["grid"] as Array).size()
 	var lines := [
@@ -1287,6 +1314,7 @@ func _refresh_results() -> void:
 
 func _time_up() -> void:
 	state = State.TIME_UP
+	_race_event("time_up", 0)
 	Sfx.play(self, "fail", -3.0)
 	car.controls_enabled = false
 	_show_panel([

@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Parkstad Racer statistieken</title>
+<style>
+/* Statistieken van Parkstad Racer: haalt /stats en /reports op met de sleutel uit
+   server/.report_key (één keer invullen, de browser onthoudt hem). */
+:root {
+	color-scheme: dark;
+	--bg: #101722; --card: #18202e; --line: #2a3344; --grid: #232c3b;
+	--text: #eef1f4; --text-2: #b4bcc6; --muted: #7d8794; --accent: #f3df68;
+	--s1: #3987e5; --s2: #d95926; --s3: #199e70;
+}
+@media (prefers-color-scheme: light) {
+	:root:not([data-theme="dark"]) {
+		color-scheme: light;
+		--bg: #f4f5f7; --card: #ffffff; --line: #dfe3e8; --grid: #eceef1;
+		--text: #14181f; --text-2: #4c5562; --muted: #7a838f; --accent: #9a7d00;
+		--s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a;
+	}
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 -apple-system, system-ui, "Segoe UI", sans-serif; }
+.wrap { max-width: 1180px; margin: 0 auto; padding: 24px 16px 48px; }
+header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; margin-bottom: 20px; }
+h1 { margin: 0; font-size: 24px; letter-spacing: .5px; }
+h1 b { color: var(--accent); }
+h1 span { color: var(--muted); font-weight: 400; font-size: 16px; margin-left: 6px; }
+.seg { display: inline-flex; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 3px; margin-left: auto; }
+.seg button { font: inherit; font-size: 14px; color: var(--text-2); background: none; border: 0; border-radius: 7px; padding: 6px 12px; cursor: pointer; }
+.seg button.on { background: var(--line); color: var(--text); }
+.muted { color: var(--muted); font-size: 13px; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.kpi { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
+.kpi .v { font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.kpi .l { color: var(--text-2); font-size: 13px; margin-top: 4px; }
+.kpi .s { color: var(--muted); font-size: 12px; }
+.grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 16px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; grid-column: span 6; min-width: 0; }
+.card.w12 { grid-column: span 12; } .card.w8 { grid-column: span 8; } .card.w4 { grid-column: span 4; }
+@media (max-width: 860px) { .card, .card.w8, .card.w4 { grid-column: span 12; } }
+.card h2 { margin: 0 0 2px; font-size: 16px; }
+.card .sub { color: var(--muted); font-size: 13px; margin-bottom: 12px; }
+svg { display: block; width: 100%; overflow: visible; }
+svg text { fill: var(--muted); font-size: 12px; font-family: inherit; }
+svg .lbl { fill: var(--text-2); }
+svg .val { fill: var(--text); font-variant-numeric: tabular-nums; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 13px; color: var(--text-2); margin: -4px 0 10px; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+th, td { text-align: right; padding: 7px 8px; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+th { color: var(--muted); font-weight: 500; font-size: 12px; }
+th:first-child, td:first-child { text-align: left; }
+.tablewrap { overflow-x: auto; }
+#tip { position: fixed; pointer-events: none; background: var(--text); color: var(--bg); border-radius: 8px; padding: 7px 10px; font-size: 13px; line-height: 1.35; opacity: 0; transition: opacity .1s; z-index: 10; max-width: 260px; }
+#tip b { font-weight: 700; }
+.key { max-width: 440px; margin: 80px auto; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 24px; }
+.key input { width: 100%; font: inherit; padding: 10px 12px; border-radius: 9px; border: 1px solid var(--line); background: var(--bg); color: var(--text); margin: 12px 0; }
+.key button, .btn { font: inherit; background: var(--accent); color: #111723; border: 0; border-radius: 9px; padding: 9px 16px; font-weight: 700; cursor: pointer; }
+.rep { border-top: 1px solid var(--grid); padding: 10px 0; font-size: 14px; }
+.rep:first-child { border-top: 0; }
+.rep .k { font-weight: 700; } .rep .m { color: var(--muted); font-size: 12px; }
+.empty { color: var(--muted); padding: 20px 0; text-align: center; }
+.hb { display: grid; gap: 8px; }
+.hr { display: grid; grid-template-columns: minmax(64px, 40%) 1fr 2.5em; gap: 10px; align-items: center; font-size: 13px; }
+.hl { color: var(--text-2); text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ht i { display: block; height: 18px; border-radius: 4px; }
+.ht.st { display: flex; gap: 2px; }
+.ht.st i { flex: none; min-width: 3px; }
+.lv .hr { grid-template-columns: minmax(88px, 18%) 1fr 2.5em; }
+.lv .ht i { height: 22px; }
+.hv { font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<div id="tip"></div>
+<div class="wrap" id="app"></div>
+<script>
+(function () {
+	var LEVELS = { heerlen: 'Heerlen', kerkrade: 'Kerkrade', landgraaf: 'Landgraaf', brunssum: 'Brunssum', simpelveld: 'Simpelveld', voerendaal: 'Voerendaal', beekdaelen: 'Beekdaelen', finale: 'Finale' };
+	var ORDER = Object.keys(LEVELS);
+	var CARS = { john: 'John Hatchback', estate: 'Parkstad Estate', gt: 'Kirchroa GT', rolduc: 'Rolduc Classic', rally: 'Heuvelland Rally', ranger: 'Heuvelland Ranger', koempel: 'Koempel Express', 'super': 'Wilhelmina Super', special: 'Parkstad Special', buitenring: 'Buitenring R' };
+	var DEV = { iphone: 'iPhone', ipad: 'iPad', android: 'Android', computer: 'Computer' };
+	var DIFF = ['Makkelijk', 'Normaal', 'Moeilijk'];
+	var MODE = { race: 'Race', free: 'Vrij rijden', mp: 'Samen' };
+	var KINDS = { laden_traag: 'Laden duurt lang', laden_afgebroken: 'Laden opgegeven', webgl_weg: 'Grafische verbinding weg', scriptfout: 'Scriptfout', handmatig: 'Gemeld door speler', test: 'Test' };
+	var app = document.getElementById('app');
+	var tip = document.getElementById('tip');
+	var days = 30;
+	try { days = parseInt(localStorage.getItem('pr-days'), 10) || 30; } catch (e) {}
+	function key() { try { return localStorage.getItem('pr-key') || ''; } catch (e) { return ''; } }
+	function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+	function fmt(n) { return (n || 0).toLocaleString('nl-NL'); }
+	function pct(a, b) { return b ? Math.round(100 * a / b) + '%' : '-'; }
+	function time(s) { if (s == null) return '-'; var m = Math.floor(s / 60); return m + ':' + (s - m * 60).toFixed(2).padStart(5, '0'); }
+	function dur(s) { s = Math.round(s || 0); var h = Math.floor(s / 3600), m = Math.round((s % 3600) / 60); return h ? h + ' u ' + m + ' m' : m + ' min'; }
+	function shortDay(d) { var p = d.split('-'); return parseInt(p[2], 10) + '-' + parseInt(p[1], 10); }
+	function niceMax(v) { if (v <= 4) return 4; var p = Math.pow(10, Math.floor(Math.log10(v))); var f = v / p; return (f <= 2 ? 2 : f <= 5 ? 5 : 10) * p; }
+
+	/* tooltip: elke mark met data-tip */
+	document.addEventListener('mousemove', function (e) {
+		var t = e.target.closest ? e.target.closest('[data-tip]') : null;
+		if (!t) { tip.style.opacity = 0; return; }
+		tip.innerHTML = t.getAttribute('data-tip');
+		var x = e.clientX + 14, y = e.clientY + 14;
+		if (x + tip.offsetWidth > innerWidth - 8) x = e.clientX - tip.offsetWidth - 14;
+		if (y + tip.offsetHeight > innerHeight - 8) y = e.clientY - tip.offsetHeight - 14;
+		tip.style.left = x + 'px'; tip.style.top = y + 'px'; tip.style.opacity = 1;
+	});
+
+	function askKey(msg) {
+		app.innerHTML = '<div class="key"><h1><b>PARKSTAD RACER</b> <span>statistieken</span></h1>'
+			+ '<p class="muted">' + (msg || 'Vul de sleutel in (server/.report_key). Deze browser onthoudt hem.') + '</p>'
+			+ '<input id="k" type="password" placeholder="sleutel" autocomplete="off"><button id="go">Openen</button></div>';
+		document.getElementById('go').onclick = function () {
+			try { localStorage.setItem('pr-key', document.getElementById('k').value.trim()); } catch (e) {}
+			load();
+		};
+	}
+
+	function get(path) {
+		return fetch(path, { headers: { Authorization: 'Bearer ' + key() } }).then(function (r) {
+			if (r.status === 401) throw new Error('key');
+			return r.json();
+		});
+	}
+
+	function load() {
+		if (!key()) { askKey(); return; }
+		Promise.all([get('stats?days=' + days), get('reports?n=12').catch(function () { return []; })]).then(function (res) {
+			render(res[0], res[1]);
+		}).catch(function (e) {
+			if (e.message === 'key') {
+				try { localStorage.removeItem('pr-key'); } catch (x) {}
+				askKey('Die sleutel klopt niet. Probeer het nog eens.');
+			} else {
+				app.innerHTML = '<div class="key">Kon de statistieken niet laden: ' + esc(e.message) + '</div>';
+			}
+		});
+	}
+
+	/* lijn: per dag, meerdere reeksen met legenda, labels aan het eind en een kruisdraad */
+	function lineChart(daily, from, to, series) {
+		var all = [];
+		for (var d = new Date(from + 'T12:00:00'); d <= new Date(to + 'T12:00:00'); d.setDate(d.getDate() + 1)) all.push(d.toLocaleDateString('en-CA'));
+		var by = {}; daily.forEach(function (r) { by[r.day] = r; });
+		var W = chartW(1), H = W < 500 ? 200 : 240, L = 34, R = 90, T = 12, B = 26, w = W - L - R, h = H - T - B;
+		var max = niceMax(Math.max.apply(null, [1].concat(series.map(function (s) { return Math.max.apply(null, all.map(function (d) { return (by[d] || {})[s.k] || 0; })); }))));
+		var x = function (i) { return L + (all.length < 2 ? w / 2 : i * w / (all.length - 1)); };
+		var y = function (v) { return T + h - v / max * h; };
+		var out = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Spelers en races per dag">';
+		for (var g = 0; g <= 4; g++) {
+			var gv = max * g / 4;
+			out += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y(gv) + '" y2="' + y(gv) + '" stroke="var(--grid)" />'
+				+ '<text x="' + (L - 8) + '" y="' + (y(gv) + 4) + '" text-anchor="end">' + fmt(gv) + '</text>';
+		}
+		var step = Math.max(1, Math.ceil(all.length / (W < 500 ? 4 : 8)));
+		var lastI = all.length - 1;
+		all.forEach(function (d, i) { if ((i % step === 0 && lastI - i >= step * 0.6) || i === lastI) out += '<text x="' + x(i) + '" y="' + (H - 6) + '" text-anchor="middle">' + shortDay(d) + '</text>'; });
+		series.forEach(function (s) {
+			var pts = all.map(function (d, i) { return x(i) + ',' + y((by[d] || {})[s.k] || 0); }).join(' ');
+			out += '<polyline points="' + pts + '" fill="none" stroke="' + s.c + '" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />';
+			var last = (by[all[all.length - 1]] || {})[s.k] || 0;
+			out += '<circle cx="' + x(all.length - 1) + '" cy="' + y(last) + '" r="4" fill="' + s.c + '" stroke="var(--card)" stroke-width="2" />'
+				+ '<text class="lbl" x="' + (x(all.length - 1) + 10) + '" y="' + (y(last) + 4) + '">' + s.n + ' ' + fmt(last) + '</text>';
+		});
+		/* kruisdraad: een onzichtbare kolom per dag */
+		all.forEach(function (d, i) {
+			var r = by[d] || {};
+			var t = '<b>' + new Date(d + 'T12:00:00').toLocaleDateString('nl-NL', { weekday: 'short', day: 'numeric', month: 'short' }) + '</b>'
+				+ series.map(function (s) { return '<br>' + s.n + ': ' + fmt(r[s.k] || 0); }).join('');
+			var cw = all.length < 2 ? w : w / (all.length - 1);
+			out += '<g class="hov" data-tip="' + esc(t) + '"><rect x="' + (x(i) - cw / 2) + '" y="' + T + '" width="' + cw + '" height="' + h + '" fill="transparent" />'
+				+ '<line class="xh" x1="' + x(i) + '" x2="' + x(i) + '" y1="' + T + '" y2="' + (T + h) + '" stroke="var(--muted)" stroke-dasharray="3 3" opacity="0" /></g>';
+		});
+		return out + '</svg>';
+	}
+
+	/* liggende balken, één reeks (HTML, zodat de tekst in smalle kaarten leesbaar blijft) */
+	function hbars(rows, color, label, unit) {
+		if (!rows.length) return '<div class="empty">Nog geen gegevens</div>';
+		var max = Math.max.apply(null, rows.map(function (r) { return r.n; })) || 1;
+		return '<div class="hb">' + rows.map(function (r) {
+			return '<div class="hr" data-tip="' + esc('<b>' + label(r.k) + '</b><br>' + fmt(r.n) + ' ' + unit) + '"><span class="hl">' + esc(label(r.k)) + '</span>'
+				+ '<span class="ht"><i style="width:' + Math.max(1.5, 100 * r.n / max) + '%;background:' + color + '"></i></span><span class="hv">' + fmt(r.n) + '</span></div>';
+		}).join('') + '</div>';
+	}
+
+	/* levels: gestapelde balk uitgereden / tijd op / gestopt (HTML) */
+	function levelBars(levels) {
+		var rows = ORDER.map(function (id) { return levels.filter(function (l) { return l.lvl === id; })[0] || { lvl: id, starts: 0, finishes: 0, time_ups: 0, quits: 0 }; });
+		var segs = [['finishes', 'Uitgereden', 'var(--s1)'], ['time_ups', 'Tijd op', 'var(--s2)'], ['quits', 'Gestopt', 'var(--s3)']];
+		var max = Math.max.apply(null, rows.map(function (r) { return (r.finishes || 0) + (r.time_ups || 0) + (r.quits || 0); })) || 1;
+		return '<div class="legend">' + segs.map(function (s) { return '<span><i style="background:' + s[2] + '"></i>' + s[1] + '</span>'; }).join('') + '</div>'
+			+ '<div class="hb lv">' + rows.map(function (r) {
+				var total = 0;
+				var bars = segs.map(function (sg) {
+					var v = r[sg[0]] || 0;
+					total += v;
+					return v ? '<i data-tip="' + esc('<b>' + LEVELS[r.lvl] + '</b><br>' + sg[1] + ': ' + fmt(v)) + '" style="width:' + (100 * v / max) + '%;background:' + sg[2] + '"></i>' : '';
+				}).join('');
+				return '<div class="hr"><span class="hl">' + LEVELS[r.lvl] + '</span><span class="ht st">' + bars + '</span><span class="hv">' + (total ? fmt(total) : '') + '</span></div>';
+			}).join('') + '</div>';
+	}
+
+	function levelTable(levels) {
+		var rows = ORDER.map(function (id) { return levels.filter(function (l) { return l.lvl === id; })[0]; }).filter(Boolean);
+		if (!rows.length) return '<div class="empty">Nog geen races</div>';
+		return '<div class="tablewrap"><table><tr><th>Level</th><th>Spelers</th><th>Gestart</th><th>Uitgereden</th><th>Tijd op</th><th>Gem. plaats</th><th>Snelste</th></tr>'
+			+ rows.map(function (r) {
+				return '<tr><td>' + LEVELS[r.lvl] + '</td><td>' + fmt(r.players) + '</td><td>' + fmt(r.starts) + '</td><td>' + pct(r.finishes, r.starts) + '</td><td>' + pct(r.time_ups, r.starts)
+					+ '</td><td>' + (r.avg_pos ? r.avg_pos.toFixed(1) : '-') + '</td><td>' + time(r.best_secs) + '</td></tr>';
+			}).join('') + '</table></div>';
+	}
+
+	/* uren: staande balkjes 0-23 */
+	function hours(rows) {
+		var by = {}; rows.forEach(function (r) { by[r.k] = r.n; });
+		var W = chartW(8 / 12), H = 150, T = 8, B = 22, cw = W / 24, max = Math.max.apply(null, [1].concat(rows.map(function (r) { return r.n; })));
+		var out = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Races per uur van de dag">';
+		for (var hr = 0; hr < 24; hr++) {
+			var v = by[hr] || 0, bh = v ? Math.max(3, (H - T - B) * v / max) : 0;
+			out += '<g data-tip="' + esc('<b>' + hr + ':00 - ' + (hr + 1) + ':00</b><br>' + fmt(v) + ' races') + '"><rect x="' + (hr * cw) + '" y="' + T + '" width="' + cw + '" height="' + (H - T - B) + '" fill="transparent" />'
+				+ (bh ? '<rect x="' + (hr * cw + 3) + '" y="' + (H - B - bh) + '" width="' + (cw - 6) + '" height="' + bh + '" rx="4" fill="var(--s1)" />' : '')
+				+ (hr % (W < 500 ? 6 : 3) === 0 ? '<text x="' + (hr * cw + cw / 2) + '" y="' + (H - 6) + '" text-anchor="middle">' + hr + 'u</text>' : '') + '</g>';
+		}
+		return out + '<line x1="0" x2="' + W + '" y1="' + (H - B) + '" y2="' + (H - B) + '" stroke="var(--line)" /></svg>';
+	}
+
+	function reports(list) {
+		if (!list.length) return '<div class="empty">Geen rapporten</div>';
+		return list.map(function (r) {
+			var ua = String(r.ua || '');
+			var dev = /Android/.test(ua) ? 'Android' : /iPhone/.test(ua) ? 'iPhone' : /iPad|Macintosh/.test(ua) ? (/Mobile/.test(ua) ? 'iPad' : 'Mac') : /Windows/.test(ua) ? 'Windows' : '';
+			return '<div class="rep"><span class="k">' + esc(KINDS[r.kind] || r.kind) + '</span>'
+				+ (r.note ? ': ' + esc(r.note) : '')
+				+ '<div class="m">' + esc(new Date(r.time).toLocaleString('nl-NL', { dateStyle: 'short', timeStyle: 'short' })) + ' · ' + esc(dev) + ' · ' + esc(r.gpu || '?')
+				+ (r.stage ? ' · ' + esc(r.stage) : '') + '</div></div>';
+		}).join('');
+	}
+
+	/* breedte van een kaart van dit deel van de 12 kolommen (op de telefoon: de hele breedte) */
+	function chartW(part) {
+		var full = Math.min(1180, document.documentElement.clientWidth) - 32 - 38;
+		if (document.documentElement.clientWidth <= 860) part = 1;
+		return Math.max(300, Math.round(full * part - (part < 1 ? 16 : 0)));
+	}
+
+	function kpi(v, l, s) { return '<div class="kpi"><div class="v">' + v + '</div><div class="l">' + l + '</div>' + (s ? '<div class="s">' + s + '</div>' : '') + '</div>'; }
+
+	function render(st, reps) {
+		var t = st.totals;
+		var ended = (t.finishes || 0) + (t.time_ups || 0) + (t.quits || 0);
+		var seg = [7, 30, 90, 365].map(function (d) { return '<button data-d="' + d + '" class="' + (d === days ? 'on' : '') + '">' + (d === 365 ? '1 jaar' : d + ' dagen') + '</button>'; }).join('');
+		app.innerHTML = '<header><h1><b>PARKSTAD RACER</b> <span>statistieken</span></h1>'
+			+ '<span class="muted">' + shortDay(st.since) + ' t/m ' + shortDay(st.today) + ' · ververst ' + new Date().toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }) + '</span>'
+			+ '<div class="seg">' + seg + '</div></header>'
+			+ '<div class="kpis">'
+			+ kpi(fmt(t.players_today), 'Spelers vandaag')
+			+ kpi(fmt(t.players_7), 'Spelers deze week', 'laatste 7 dagen')
+			+ kpi(fmt(t.players_period), 'Spelers in deze periode', fmt(t.players_all) + ' ooit')
+			+ kpi(fmt(t.starts), 'Races gestart', fmt(t.free_rides) + ' vrij rijden · ' + fmt(t.mp_races) + ' samen')
+			+ kpi(pct(t.finishes, ended), 'Uitgereden', fmt(t.finishes) + ' van ' + fmt(ended) + ' afgelopen')
+			+ kpi(fmt(t.wins), 'Keer gewonnen', 'eerste plaats in een race')
+			+ kpi(pct(t.installed, t.players_period), 'Op beginscherm', fmt(t.installed) + ' spelers')
+			+ kpi(dur(t.secs_driven), 'Samen gereden', 'in alle races')
+			+ '</div><div class="grid">'
+			+ '<div class="card w12"><h2>Per dag</h2><div class="sub">Spelers (verschillende apparaten) en gestarte races</div>'
+			+ '<div class="legend"><span><i style="background:var(--s1)"></i>Spelers</span><span><i style="background:var(--s2)"></i>Races</span></div>'
+			+ lineChart(st.daily, st.since, st.today, [{ k: 'players', n: 'Spelers', c: 'var(--s1)' }, { k: 'starts', n: 'Races', c: 'var(--s2)' }]) + '</div>'
+			+ '<div class="card w12"><h2>Levels</h2><div class="sub">Hoe races aflopen (race en samen, zonder vrij rijden)</div>' + levelBars(st.levels) + levelTable(st.levels) + '</div>'
+			+ '<div class="card w4"><h2>Apparaten</h2><div class="sub">Spelers per soort apparaat</div>' + hbars(st.devices, 'var(--s1)', function (k) { return DEV[k] || k || '?'; }, 'spelers') + '</div>'
+			+ '<div class="card w4"><h2>Browsers</h2><div class="sub">Spelers per browser</div>' + hbars(st.browsers, 'var(--s1)', function (k) { return k || '?'; }, 'spelers') + '</div>'
+			+ '<div class="card w4"><h2>Moeilijkheid</h2><div class="sub">Gestarte races</div>' + hbars(st.difficulty, 'var(--s1)', function (k) { return DIFF[k] || '?'; }, 'races') + '</div>'
+			+ '<div class="card w8"><h2>Wanneer wordt er gespeeld?</h2><div class="sub">Gestarte races per uur (Nederlandse tijd)</div>' + hours(st.hours) + '</div>'
+			+ '<div class="card w4"><h2>Soort race</h2><div class="sub">Gestarte races</div>' + hbars(st.modes, 'var(--s1)', function (k) { return MODE[k] || k; }, 'races') + '</div>'
+			+ '<div class="card w4"><h2>Auto\'s</h2><div class="sub">Waarmee gestart wordt</div>' + hbars(st.cars, 'var(--s1)', function (k) { return CARS[k] || k; }, 'races') + '</div>'
+			+ '<div class="card w4"><h2>Versies</h2><div class="sub">Spelers per versie van het spel</div>' + hbars(st.versions, 'var(--s1)', function (k) { return k ? 'v' + k : '?'; }, 'spelers') + '</div>'
+			+ '<div class="card w4"><h2>Probleemrapporten</h2><div class="sub">De laatste 12 (lezen in detail met tools/reports.sh)</div>' + reports(reps) + '</div>'
+			+ '</div>';
+		Array.prototype.forEach.call(document.querySelectorAll('.seg button'), function (b) {
+			b.onclick = function () { days = parseInt(b.getAttribute('data-d'), 10); try { localStorage.setItem('pr-days', days); } catch (e) {} load(); };
+		});
+		Array.prototype.forEach.call(document.querySelectorAll('g.hov'), function (g) {
+			g.onmouseenter = function () { g.querySelector('.xh').setAttribute('opacity', 1); };
+			g.onmouseleave = function () { g.querySelector('.xh').setAttribute('opacity', 0); };
+		});
+	}
+
+	load();
+	var rt;
+	window.addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(load, 300); });
+	setInterval(function () { if (key() && !document.hidden) load(); }, 60000);
+})();
+</script>
+</body>
+</html>

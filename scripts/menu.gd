@@ -675,7 +675,7 @@ func _help_page() -> Control:
         body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
         body.custom_minimum_size = Vector2(w, 0)
         col.add_child(body)
-    var credit := _label("Motorgeluid: \"rally car idle loop\" via Pixabay (freesound_community), Pixabay-licentie.\nStoomtrein: \"Steam Train Locomotive\" door MeijstroAudio (freesound.org/s/371885, CC BY 4.0).\nStoomfluit: \"Steam train whistles; pulls out\" door craigsmith (freesound.org/s/675313, CC0).\nAWACS: \"airplane pass\" via Pixabay (freesound_community).\nAuto's in het verkeer: Car Kit door Kenney (kenney.nl, CC0).\nOverige geluiden en muziek zijn in code gemaakt.", 14, Color("8d96a0"))
+    var credit := _label("Motorgeluid: \"rally car idle loop\" via Pixabay (freesound_community), Pixabay-licentie.\nStoomtrein: \"Steam Train Locomotive\" door MeijstroAudio (freesound.org/s/371885, CC BY 4.0).\nStoomfluit: \"Steam train whistles; pulls out\" door craigsmith (freesound.org/s/675313, CC0).\nAWACS: \"airplane pass\" via Pixabay (freesound_community).\nAuto's in het verkeer: Car Kit door Kenney (kenney.nl, CC0).\nOverige geluiden en muziek zijn in code gemaakt.\n\nIn de browser stuurt het spel anonieme statistieken (welk level, hoe de race afliep, soort apparaat) met een willekeurig apparaatnummer; geen naam.", 14, Color("8d96a0"))
     help_box.add_child(credit)
     return page
 
