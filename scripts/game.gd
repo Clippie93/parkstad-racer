@@ -53,7 +53,9 @@ func _ready() -> void:
     _set_tab_icon()
     process_mode = Node.PROCESS_MODE_ALWAYS
     web_stage("start")
-    web_event("open")
+    # opstarttijd: van het openen van de pagina tot het spel draait (download + opstarten)
+    var boot_ms = JavaScriptBridge.eval("Math.round(performance.now())", true) if OS.has_feature("web") else 0
+    web_event("open", {"boot_ms": int(boot_ms) if boot_ms != null else 0, "gpu": RenderingServer.get_video_adapter_name().substr(0, 60)})
     # voor tests: meteen een kamer in (PARKSTAD_ROOM=ABCD)
     if OS.get_environment("PARKSTAD_ROOM") != "":
         net().join(OS.get_environment("PARKSTAD_ROOM"), player_name())

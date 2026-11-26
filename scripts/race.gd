@@ -162,6 +162,7 @@ signal loaded
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	_ev_load_t0 = Time.get_ticks_msec()
 	free = Game.free_ride
 	var info: Dictionary = Game.current_level()
 	# laadscherm: eerst tonen, dan pas het level opbouwen (dat duurt op een telefoon even)
@@ -199,13 +200,16 @@ func _ready() -> void:
 		add_child(net_ghosts)
 		net_ghosts.setup(self)
 	Game.web_stage("laden: %s, shaders voorbereiden" % info["name"])
+	var prewarm_t0 := Time.get_ticks_msec()
 	await _prewarm()
+	_ev_prewarm_ms = Time.get_ticks_msec() - prewarm_t0
 	if Game.mp_active() and net_ghosts != null:
 		world.process_mode = Node.PROCESS_MODE_DISABLED
 		net_ghosts.mp_loaded()
 	await _loaded_step(bar, 1.0)
 	screen.queue_free()
 	loading = false
+	_ev_load_ms = Time.get_ticks_msec() - _ev_load_t0
 	Game.web_stage("%s: %s" % ["vrij rijden" if free else "race", info["name"]])
 	if free:
 		state = State.RACING
@@ -654,19 +658,30 @@ func _exit_tree() -> void:
 # Statistieken: start en afloop van elke race (anoniem, alleen in de webversie).
 var _ev_started := false
 var _ev_ended := false
+var _ev_load_t0 := 0
+var _ev_load_ms := 0
+var _ev_prewarm_ms := 0
+var _ev_frames := 0
+var _ev_frame_time := 0.0
+var _ev_slow := 0              # beeldjes trager dan 50 ms (haperingen)
 
 func _race_event_start() -> void:
 	_ev_started = true
 	Game.web_event("race_start", {"lvl": String(Game.current_level()["id"]), "mode": _ev_mode(),
 		"diff": Game.difficulty(), "car": "john" if (Game.mp_active() and String(Game.mp.get("rule", "")) == "equal") else Game.selected_car(),
-		"n": 1 + rivals.size() + (net_ghosts.rows().size() if net_ghosts != null else 0)})
+		"n": 1 + rivals.size() + (net_ghosts.rows().size() if net_ghosts != null else 0),
+		"load_ms": _ev_load_ms, "prewarm_ms": _ev_prewarm_ms, "gpu": RenderingServer.get_video_adapter_name().substr(0, 60),
+		"gfx": Game.graphics_mode()})
 
 func _race_event(res: String, pos: int) -> void:
 	if not _ev_started or _ev_ended:
 		return
 	_ev_ended = true
 	Game.web_event("race_end", {"lvl": String(Game.current_level()["id"]), "mode": _ev_mode(), "diff": Game.difficulty(),
-		"res": res, "pos": pos, "secs": snappedf(elapsed, 0.01), "cp": next_cp + (lap - 1) * cp_s.size()})
+		"res": res, "pos": pos, "secs": snappedf(elapsed, 0.01), "cp": next_cp + (lap - 1) * cp_s.size(),
+		"fps": snappedf(_ev_frames / _ev_frame_time, 0.1) if _ev_frame_time > 1.0 else 0.0,
+		"slow": snappedf(100.0 * _ev_slow / _ev_frames, 0.01) if _ev_frames > 0 else 0.0,
+		"gpu": RenderingServer.get_video_adapter_name().substr(0, 60)})
 
 func _ev_mode() -> String:
 	return "free" if free else ("mp" if Game.mp_active() else "race")
@@ -952,6 +967,12 @@ func _physics_process(_delta: float) -> void:
 func _process(delta: float) -> void:
 	if loading:
 		return
+	# prestaties voor de statistieken: gemiddelde beeldjes per seconde en haperingen
+	if state == State.RACING and not get_tree().paused:
+		_ev_frames += 1
+		_ev_frame_time += delta
+		if delta > 0.05:
+			_ev_slow += 1
 	if car != null:
 		speed_gauge.set_speed(car.speed_kmh())
 	if big_timer > 0.0:

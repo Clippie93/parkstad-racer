@@ -52,6 +52,8 @@ function cleanEvent(d) {
 		e: d.e, vid: str(d.vid, 64), v: str(d.v, 12), dev: str(d.dev, 12), br: str(d.br, 20), app: d.app ? 1 : 0,
 		lvl: str(d.lvl, 24), mode: str(d.mode, 8), diff: num(d.diff), car: str(d.car, 24),
 		res: str(d.res, 10), pos: num(d.pos), secs: num(d.secs), n: num(d.n), cp: num(d.cp),
+		boot_ms: num(d.boot_ms), load_ms: num(d.load_ms), prewarm_ms: num(d.prewarm_ms), fps: num(d.fps), slow: num(d.slow),
+		gpu: str(d.gpu, 60), gfx: str(d.gfx, 8),
 	};
 }
 
@@ -309,7 +311,8 @@ export class Stats extends DurableObject {
 		this.ctx.storage.sql.exec(`CREATE TABLE IF NOT EXISTS ev (
 			id INTEGER PRIMARY KEY AUTOINCREMENT, t INTEGER, day TEXT, hour INTEGER, e TEXT, vid TEXT, v TEXT,
 			dev TEXT, br TEXT, app INTEGER, lvl TEXT, mode TEXT, diff INTEGER, car TEXT, res TEXT,
-			pos INTEGER, secs REAL, n INTEGER, cp INTEGER)`);
+			pos INTEGER, secs REAL, n INTEGER, cp INTEGER, boot_ms INTEGER, load_ms INTEGER, prewarm_ms INTEGER,
+			fps REAL, slow REAL, gpu TEXT, gfx TEXT)`);
 		this.ctx.storage.sql.exec("CREATE INDEX IF NOT EXISTS ev_day ON ev (day)");
 	}
 
@@ -321,10 +324,12 @@ export class Stats extends DurableObject {
 			const now = new Date();
 			const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Amsterdam", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hourCycle: "h23" })
 				.formatToParts(now).map((p) => [p.type, p.value]));
-			sql.exec(`INSERT INTO ev (t, day, hour, e, vid, v, dev, br, app, lvl, mode, diff, car, res, pos, secs, n, cp)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			sql.exec(`INSERT INTO ev (t, day, hour, e, vid, v, dev, br, app, lvl, mode, diff, car, res, pos, secs, n, cp,
+				boot_ms, load_ms, prewarm_ms, fps, slow, gpu, gfx)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 				now.getTime(), `${parts.year}-${parts.month}-${parts.day}`, parseInt(parts.hour, 10), d.e, d.vid, d.v, d.dev, d.br, d.app,
-				d.lvl, d.mode, d.diff, d.car, d.res, d.pos, d.secs, d.n, d.cp);
+				d.lvl, d.mode, d.diff, d.car, d.res, d.pos, d.secs, d.n, d.cp,
+				d.boot_ms, d.load_ms, d.prewarm_ms, d.fps, d.slow, d.gpu, d.gfx);
 			if (Math.random() < 0.01) {
 				sql.exec("DELETE FROM ev WHERE t < ?", now.getTime() - 366 * 86400000);
 			}
@@ -368,6 +373,36 @@ export class Stats extends DurableObject {
 				modes: q(`SELECT mode AS k, COUNT(*) AS n FROM ev WHERE day >= ? AND e = 'race_start' GROUP BY mode ORDER BY n DESC`, since),
 				hours: q(`SELECT hour AS k, COUNT(*) AS n FROM ev WHERE day >= ? AND e = 'race_start' GROUP BY hour ORDER BY hour`, since),
 				versions: q(`SELECT v AS k, COUNT(DISTINCT vid) AS n FROM ev WHERE day >= ? GROUP BY v ORDER BY v DESC`, since),
+			};
+			// prestaties: mediaan en de traagste 10% (p90), per apparaat, level en grafische chip
+			const pct = (arr, p) => {
+				const v = arr.filter((x) => x != null && x > 0).sort((a, b) => a - b);
+				return v.length ? v[Math.min(v.length - 1, Math.floor(p * v.length))] : null;
+			};
+			const group = (rows, key, fields) => {
+				const g = {};
+				rows.forEach((r) => { const k = r[key] || "?"; (g[k] = g[k] || []).push(r); });
+				return Object.entries(g).map(([k, list]) => {
+					const o = { k, n: list.length };
+					fields.forEach((f) => { o[f + "_med"] = pct(list.map((r) => r[f]), 0.5); o[f + "_p90"] = pct(list.map((r) => r[f]), 0.9); });
+					return o;
+				}).sort((a, b) => b.n - a.n);
+			};
+			const opens = q(`SELECT dev, gpu, boot_ms FROM ev WHERE day >= ? AND e = 'open'`, since);
+			const loads = q(`SELECT dev, gpu, lvl, load_ms, prewarm_ms FROM ev WHERE day >= ? AND e = 'race_start'`, since);
+			const runs = q(`SELECT dev, gpu, lvl, fps, slow FROM ev WHERE day >= ? AND e = 'race_end' AND secs > 20`, since);
+			const merge = (a, b) => {
+				const m = {};
+				a.concat(b).forEach((r) => { m[r.k] = Object.assign(m[r.k] || { k: r.k }, r, { n: Math.max((m[r.k] || {}).n || 0, r.n) }); });
+				return Object.values(m).sort((x, y) => y.n - x.n);
+			};
+			out.perf = {
+				boot: { med: pct(opens.map((r) => r.boot_ms), 0.5), p90: pct(opens.map((r) => r.boot_ms), 0.9) },
+				load: { med: pct(loads.map((r) => r.load_ms), 0.5), p90: pct(loads.map((r) => r.load_ms), 0.9) },
+				fps: { med: pct(runs.map((r) => r.fps), 0.5), p10: pct(runs.map((r) => r.fps), 0.1) },
+				devices: merge(merge(group(opens, "dev", ["boot_ms"]), group(loads, "dev", ["load_ms", "prewarm_ms"])), group(runs, "dev", ["fps", "slow"])),
+				levels: merge(group(loads, "lvl", ["load_ms", "prewarm_ms"]), group(runs, "lvl", ["fps", "slow"])),
+				gpus: merge(group(loads, "gpu", ["load_ms"]), group(runs, "gpu", ["fps", "slow"])).filter((r) => r.k !== "?").slice(0, 12),
 			};
 			return Response.json(out);
 		}

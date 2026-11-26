@@ -12,14 +12,14 @@
 	color-scheme: dark;
 	--bg: #101722; --card: #18202e; --line: #2a3344; --grid: #232c3b;
 	--text: #eef1f4; --text-2: #b4bcc6; --muted: #7d8794; --accent: #f3df68;
-	--s1: #3987e5; --s2: #d95926; --s3: #199e70;
+	--s1: #3987e5; --s2: #d95926; --s3: #199e70; --warn: #f0b429;
 }
 @media (prefers-color-scheme: light) {
 	:root:not([data-theme="dark"]) {
 		color-scheme: light;
 		--bg: #f4f5f7; --card: #ffffff; --line: #dfe3e8; --grid: #eceef1;
 		--text: #14181f; --text-2: #4c5562; --muted: #7a838f; --accent: #9a7d00;
-		--s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a;
+		--s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --warn: #a15c00;
 	}
 }
 * { box-sizing: border-box; }
@@ -65,6 +65,10 @@ th:first-child, td:first-child { text-align: left; }
 .rep .k { font-weight: 700; } .rep .m { color: var(--muted); font-size: 12px; }
 .empty { color: var(--muted); padding: 20px 0; text-align: center; }
 .hb { display: grid; gap: 8px; }
+.card h3 { margin: 18px 0 6px; font-size: 14px; color: var(--text-2); }
+.kpis.inner { margin: 4px 0 0; }
+.kpis.inner .kpi { background: var(--bg); }
+.warn { color: var(--warn); font-weight: 700; }
 .hr { display: grid; grid-template-columns: minmax(64px, 40%) 1fr 2.5em; gap: 10px; align-items: center; font-size: 13px; }
 .hl { color: var(--text-2); text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ht i { display: block; height: 18px; border-radius: 4px; }
@@ -242,6 +246,56 @@ th:first-child, td:first-child { text-align: left; }
 		}).join('');
 	}
 
+	/* prestaties: tijden in seconden, met een waarschuwing boven een grens */
+	function secs(ms, warn) {
+		if (ms == null) return '-';
+		var t = (ms / 1000).toFixed(ms < 10000 ? 1 : 0) + ' s';
+		return warn && ms > warn ? '<span class="warn" title="traag">&#9888; ' + t + '</span>' : t;
+	}
+	function fpsTxt(f) {
+		if (f == null) return '-';
+		var t = Math.round(f);
+		return f < 25 ? '<span class="warn" title="schokkerig">&#9888; ' + t + '</span>' : String(t);
+	}
+	function slowTxt(p) {
+		if (p == null) return '-';
+		var t = p.toFixed(1) + '%';
+		return p > 5 ? '<span class="warn" title="veel haperingen">&#9888; ' + t + '</span>' : t;
+	}
+	function perfTable(rows, first, cols) {
+		if (!rows || !rows.length) return '<div class="empty">Nog geen metingen</div>';
+		return '<div class="tablewrap"><table><tr><th>' + first[0] + '</th><th>Metingen</th>' + cols.map(function (c) { return '<th>' + c[0] + '</th>'; }).join('') + '</tr>'
+			+ rows.map(function (r) {
+				return '<tr><td>' + esc(first[1](r.k)) + '</td><td>' + fmt(r.n) + '</td>' + cols.map(function (c) { return '<td>' + c[1](r) + '</td>'; }).join('') + '</tr>';
+			}).join('') + '</table></div>';
+	}
+	function perf(p) {
+		if (!p) return '';
+		var dev = function (k) { return DEV[k] || k; };
+		return '<div class="card w12"><h2>Prestaties</h2><div class="sub">Mediaan, en tussen haakjes de traagste 10%. &#9888; = trager dan normaal</div>'
+			+ '<div class="kpis inner">'
+			+ kpi(secs(p.boot.med), 'Opstarten', 'traagste 10%: ' + secs(p.boot.p90) + ' (pagina tot menu, met download)')
+			+ kpi(secs(p.load.med), 'Level laden', 'traagste 10%: ' + secs(p.load.p90))
+			+ kpi(p.fps.med ? Math.round(p.fps.med) : '-', 'Beeldjes per seconde', 'laagste 10%: ' + (p.fps.p10 ? Math.round(p.fps.p10) : '-'))
+			+ '</div>'
+			+ '<h3>Per soort apparaat</h3>' + perfTable(p.devices, ['Apparaat', dev], [
+				['Opstarten', function (r) { return secs(r.boot_ms_med, 20000) + ' <span class="muted">(' + secs(r.boot_ms_p90) + ')</span>'; }],
+				['Level laden', function (r) { return secs(r.load_ms_med, 20000) + ' <span class="muted">(' + secs(r.load_ms_p90) + ')</span>'; }],
+				['Waarvan shaders', function (r) { return secs(r.prewarm_ms_med, 8000); }],
+				['Beeldjes/s', function (r) { return fpsTxt(r.fps_med); }],
+				['Haperingen', function (r) { return slowTxt(r.slow_med); }]])
+			+ '<h3>Per level</h3>' + perfTable(p.levels, ['Level', function (k) { return LEVELS[k] || k; }], [
+				['Laden', function (r) { return secs(r.load_ms_med, 20000) + ' <span class="muted">(' + secs(r.load_ms_p90) + ')</span>'; }],
+				['Waarvan shaders', function (r) { return secs(r.prewarm_ms_med, 8000); }],
+				['Beeldjes/s', function (r) { return fpsTxt(r.fps_med); }],
+				['Haperingen', function (r) { return slowTxt(r.slow_med); }]])
+			+ '<h3>Per grafische chip</h3>' + perfTable(p.gpus, ['Chip', function (k) { return k; }], [
+				['Laden', function (r) { return secs(r.load_ms_med, 20000); }],
+				['Beeldjes/s', function (r) { return fpsTxt(r.fps_med); }],
+				['Haperingen', function (r) { return slowTxt(r.slow_med); }]])
+			+ '</div>';
+	}
+
 	/* breedte van een kaart van dit deel van de 12 kolommen (op de telefoon: de hele breedte) */
 	function chartW(part) {
 		var full = Math.min(1180, document.documentElement.clientWidth) - 32 - 38;
@@ -271,6 +325,7 @@ th:first-child, td:first-child { text-align: left; }
 			+ '<div class="card w12"><h2>Per dag</h2><div class="sub">Spelers (verschillende apparaten) en gestarte races</div>'
 			+ '<div class="legend"><span><i style="background:var(--s1)"></i>Spelers</span><span><i style="background:var(--s2)"></i>Races</span></div>'
 			+ lineChart(st.daily, st.since, st.today, [{ k: 'players', n: 'Spelers', c: 'var(--s1)' }, { k: 'starts', n: 'Races', c: 'var(--s2)' }]) + '</div>'
+			+ perf(st.perf)
 			+ '<div class="card w12"><h2>Levels</h2><div class="sub">Hoe races aflopen (race en samen, zonder vrij rijden)</div>' + levelBars(st.levels) + levelTable(st.levels) + '</div>'
 			+ '<div class="card w4"><h2>Apparaten</h2><div class="sub">Spelers per soort apparaat</div>' + hbars(st.devices, 'var(--s1)', function (k) { return DEV[k] || k || '?'; }, 'spelers') + '</div>'
 			+ '<div class="card w4"><h2>Browsers</h2><div class="sub">Spelers per browser</div>' + hbars(st.browsers, 'var(--s1)', function (k) { return k || '?'; }, 'spelers') + '</div>'
