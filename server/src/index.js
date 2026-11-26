@@ -13,6 +13,8 @@
 //   GET  /dashboard        -> de statistiekenpagina (inloggen met gebruikersnaam en wachtwoord)
 //   POST /login            -> inloggen (DASHBOARD_USER / DASHBOARD_PASSWORD, geheimen op Cloudflare);
 //                             geeft een cookie dat 30 dagen geldig is
+//   POST /password         -> wachtwoord wijzigen (ingelogd, met het huidige wachtwoord); daarna
+//                             staat het versleuteld (PBKDF2) in het Stats-object
 //   GET  /logout           -> uitloggen
 // /stats en /reports mogen met dat cookie, of met Authorization: Bearer <REPORT_KEY> (tools/reports.sh).
 //
@@ -63,15 +65,26 @@ function cleanEvent(d) {
 
 
 // ---- inloggen voor de statistiekenpagina ----
-// Het cookie is "<verloopt>.<handtekening>": een HMAC met REPORT_KEY, dus niet na te maken
-// zonder die sleutel, en er staat niets persoonlijks in.
+// Het wachtwoord staat versleuteld (PBKDF2, met zout) in het Stats-object; zolang het nog niet
+// gewijzigd is, geldt het geheim DASHBOARD_PASSWORD. Het cookie is "<verloopt>.<handtekening>":
+// een HMAC met REPORT_KEY en het zout, dus niet na te maken, en na een wachtwoordwissel zijn
+// alle oude cookies meteen ongeldig. Er staat niets persoonlijks in.
 const SESSION_DAYS = 30;
+const PBKDF2_ROUNDS = 100000;
 const enc = new TextEncoder();
+
+function b64(buf) {
+	return btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/[+/=]/g, (c) => ({ "+": "-", "/": "_", "=": "" }[c]));
+}
 
 async function hmac(env, text) {
 	const key = await crypto.subtle.importKey("raw", enc.encode("sessie:" + env.REPORT_KEY), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-	const sig = await crypto.subtle.sign("HMAC", key, enc.encode(text));
-	return btoa(String.fromCharCode(...new Uint8Array(sig))).replace(/[+/=]/g, (c) => ({ "+": "-", "/": "_", "=": "" }[c]));
+	return b64(await crypto.subtle.sign("HMAC", key, enc.encode(text)));
+}
+
+async function pbkdf2(pass, salt) {
+	const key = await crypto.subtle.importKey("raw", enc.encode(pass), "PBKDF2", false, ["deriveBits"]);
+	return b64(await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: enc.encode(salt), iterations: PBKDF2_ROUNDS }, key, 256));
 }
 
 // vergelijken in vaste tijd (geen hint via de reactietijd)
@@ -83,28 +96,73 @@ async function same(a, b) {
 	return d === 0;
 }
 
+function statsBox(env) {
+	return env.STATS.get(env.STATS.idFromName("all"));
+}
+
+// het opgeslagen wachtwoord ({salt, hash}), of null als het nog het geheim is
+async function storedPassword(env) {
+	const res = await statsBox(env).fetch("https://stats/auth");
+	const d = await res.json();
+	return d && d.salt ? d : null;
+}
+
+async function checkPassword(env, pass) {
+	const st = await storedPassword(env);
+	if (st) return { ok: await same(await pbkdf2(pass, st.salt), st.hash), salt: st.salt };
+	return { ok: !!env.DASHBOARD_PASSWORD && (await same(pass, env.DASHBOARD_PASSWORD)), salt: "" };
+}
+
+async function sessionCookie(env, salt) {
+	const until = String(Date.now() + SESSION_DAYS * 86400000);
+	return `pr_session=${until}.${await hmac(env, until + "|" + salt)}; Path=/; Max-Age=${SESSION_DAYS * 86400}; HttpOnly; Secure; SameSite=Strict`;
+}
+
 async function allowed(request, env) {
 	if (!env.REPORT_KEY) return false;
 	const auth = request.headers.get("Authorization") || "";
 	if (auth.startsWith("Bearer ") && (await same(auth.slice(7), env.REPORT_KEY))) return true;
 	const m = (request.headers.get("Cookie") || "").match(/(?:^|;\s*)pr_session=([0-9]+)\.([A-Za-z0-9_-]+)/);
 	if (!m || parseInt(m[1], 10) < Date.now()) return false;
-	return same(m[2], await hmac(env, m[1]));
+	const st = await storedPassword(env);
+	return same(m[2], await hmac(env, m[1] + "|" + (st ? st.salt : "")));
 }
+
+const slow = () => new Promise((r) => setTimeout(r, 1200));   // raden kost tijd
+const back = (where, cookie) => new Response(null, { status: 303, headers: cookie ? { Location: where, "Set-Cookie": cookie } : { Location: where } });
 
 async function login(request, env) {
 	const form = await request.formData().catch(() => null);
 	const user = form ? String(form.get("username") || "") : "";
 	const pass = form ? String(form.get("password") || "") : "";
-	const ok = env.DASHBOARD_USER && env.DASHBOARD_PASSWORD && env.REPORT_KEY &&
-		(await same(user.trim().toLowerCase(), String(env.DASHBOARD_USER).toLowerCase())) && (await same(pass, env.DASHBOARD_PASSWORD));
-	if (!ok) {
-		await new Promise((r) => setTimeout(r, 1200));   // raden kost tijd
-		return new Response(null, { status: 303, headers: { Location: "dashboard?fout=1" } });
+	if (!env.DASHBOARD_USER || !env.REPORT_KEY || !(await same(user.trim().toLowerCase(), String(env.DASHBOARD_USER).toLowerCase()))) {
+		await slow();
+		return back("dashboard?fout=1");
 	}
-	const until = String(Date.now() + SESSION_DAYS * 86400000);
-	const cookie = `pr_session=${until}.${await hmac(env, until)}; Path=/; Max-Age=${SESSION_DAYS * 86400}; HttpOnly; Secure; SameSite=Strict`;
-	return new Response(null, { status: 303, headers: { Location: "dashboard", "Set-Cookie": cookie } });
+	const c = await checkPassword(env, pass);
+	if (!c.ok) {
+		await slow();
+		return back("dashboard?fout=1");
+	}
+	return back("dashboard", await sessionCookie(env, c.salt));
+}
+
+// wachtwoord wijzigen: alleen ingelogd en met het huidige wachtwoord
+async function changePassword(request, env) {
+	if (!(await allowed(request, env))) return back("dashboard");
+	const form = await request.formData().catch(() => null);
+	const cur = form ? String(form.get("current") || "") : "";
+	const nw = form ? String(form.get("new") || "") : "";
+	const nw2 = form ? String(form.get("repeat") || "") : "";
+	if (!(await checkPassword(env, cur)).ok) {
+		await slow();
+		return back("dashboard?pw=huidig");
+	}
+	if (nw.length < 10) return back("dashboard?pw=kort");
+	if (nw !== nw2) return back("dashboard?pw=anders");
+	const salt = b64(crypto.getRandomValues(new Uint8Array(16)));
+	await statsBox(env).fetch("https://stats/auth", { method: "POST", body: JSON.stringify({ salt, hash: await pbkdf2(nw, salt) }) });
+	return back("dashboard?pw=ok", await sessionCookie(env, salt));
 }
 
 export default {
@@ -189,6 +247,9 @@ export default {
 		}
 		if (url.pathname === "/login" && request.method === "POST") {
 			return login(request, env);
+		}
+		if (url.pathname === "/password" && request.method === "POST") {
+			return changePassword(request, env);
 		}
 		if (url.pathname === "/logout") {
 			return new Response(null, { status: 303, headers: { Location: "dashboard", "Set-Cookie": "pr_session=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict" } });
@@ -388,6 +449,13 @@ export class Stats extends DurableObject {
 				sql.exec("DELETE FROM ev WHERE t < ?", now.getTime() - 366 * 86400000);
 			}
 			return new Response("ok");
+		}
+		if (url.pathname === "/auth") {
+			if (request.method === "POST") {
+				await this.ctx.storage.put("auth", JSON.parse(await request.text()));
+				return new Response("ok");
+			}
+			return Response.json((await this.ctx.storage.get("auth")) || {});
 		}
 		if (url.pathname === "/sum") {
 			const days = Math.max(1, Math.min(365, parseInt(url.searchParams.get("days") || "30", 10) || 30));

@@ -60,6 +60,8 @@ th:first-child, td:first-child { text-align: left; }
 .key { max-width: 440px; margin: 80px auto; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 24px; }
 .key label { display: block; margin-top: 10px; }
 .out { color: var(--muted); font-size: 13px; }
+.note { background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--s3); border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; }
+.note.bad { border-left-color: var(--warn); }
 .key input { width: 100%; font: inherit; padding: 10px 12px; border-radius: 9px; border: 1px solid var(--line); background: var(--bg); color: var(--text); margin: 4px 0 8px; }
 .key button, .btn { font: inherit; background: var(--accent); color: #111723; border: 0; border-radius: 9px; padding: 9px 16px; font-weight: 700; cursor: pointer; }
 .rep { border-top: 1px solid var(--grid); padding: 10px 0; font-size: 14px; }
@@ -125,6 +127,20 @@ th:first-child, td:first-child { text-align: left; }
 			+ '<label class="muted" for="p">Wachtwoord</label><input id="p" name="password" type="password" autocomplete="current-password" required>'
 			+ '<button type="submit">Inloggen</button></form>';
 	}
+
+	/* wachtwoord wijzigen (ingelogd): nieuw wachtwoord met autocomplete="new-password", zodat de
+	   wachtwoordbeheerder het voorstelt en bewaart */
+	function askNewPassword() {
+		app.innerHTML = '<form class="key" method="post" action="password"><h1><b>PARKSTAD RACER</b> <span>wachtwoord</span></h1>'
+			+ '<p class="muted">Kies een nieuw wachtwoord van minstens 10 tekens. Daarna werkt het oude niet meer, ook niet op andere apparaten.</p>'
+			+ '<input type="text" name="username" value="cliff" autocomplete="username" hidden>'
+			+ '<label class="muted" for="c">Huidig wachtwoord</label><input id="c" name="current" type="password" autocomplete="current-password" required>'
+			+ '<label class="muted" for="n">Nieuw wachtwoord</label><input id="n" name="new" type="password" autocomplete="new-password" minlength="10" required>'
+			+ '<label class="muted" for="r">Nieuw wachtwoord nog een keer</label><input id="r" name="repeat" type="password" autocomplete="new-password" minlength="10" required>'
+			+ '<button type="submit">Wijzigen</button> <a class="out" href="dashboard" style="margin-left:12px">Annuleren</a></form>';
+	}
+	var PW_MSG = { ok: 'Je wachtwoord is gewijzigd.', huidig: 'Het huidige wachtwoord klopte niet; er is niets gewijzigd.', kort: 'Het nieuwe wachtwoord moet minstens 10 tekens hebben.', anders: 'De twee nieuwe wachtwoorden waren niet gelijk.' };
+	var pwMsg = (location.search.match(/pw=([a-z]+)/) || [])[1] || '';
 
 	function get(path) {
 		return fetch(path, { credentials: 'same-origin' }).then(function (r) {
@@ -311,7 +327,8 @@ th:first-child, td:first-child { text-align: left; }
 		var seg = [7, 30, 90, 365].map(function (d) { return '<button data-d="' + d + '" class="' + (d === days ? 'on' : '') + '">' + (d === 365 ? '1 jaar' : d + ' dagen') + '</button>'; }).join('');
 		app.innerHTML = '<header><h1><b>PARKSTAD RACER</b> <span>statistieken</span></h1>'
 			+ '<span class="muted">' + shortDay(st.since) + ' t/m ' + shortDay(st.today) + ' · ververst ' + new Date().toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }) + '</span>'
-			+ '<div class="seg">' + seg + '</div><a class="out" href="logout">Uitloggen</a></header>'
+			+ '<div class="seg">' + seg + '</div><a class="out" href="#" id="pwlink">Wachtwoord wijzigen</a><a class="out" href="logout">Uitloggen</a></header>'
+			+ (pwMsg ? '<div class="note' + (pwMsg === 'ok' ? '' : ' bad') + '">' + esc(PW_MSG[pwMsg] || '') + '</div>' : '')
 			+ '<div class="kpis">'
 			+ kpi(fmt(t.players_today), 'Spelers vandaag')
 			+ kpi(fmt(t.players_7), 'Spelers deze week', 'laatste 7 dagen')
@@ -336,6 +353,7 @@ th:first-child, td:first-child { text-align: left; }
 			+ '<div class="card w4"><h2>Versies</h2><div class="sub">Spelers per versie van het spel</div>' + hbars(st.versions, 'var(--s1)', function (k) { return k ? 'v' + k : '?'; }, 'spelers') + '</div>'
 			+ '<div class="card w4"><h2>Probleemrapporten</h2><div class="sub">De laatste 12 (lezen in detail met tools/reports.sh)</div>' + reports(reps) + '</div>'
 			+ '</div>';
+		document.getElementById('pwlink').onclick = function (e) { e.preventDefault(); pwMsg = ''; askNewPassword(); };
 		Array.prototype.forEach.call(document.querySelectorAll('.seg button'), function (b) {
 			b.onclick = function () { days = parseInt(b.getAttribute('data-d'), 10); try { localStorage.setItem('pr-days', days); } catch (e) {} load(); };
 		});
