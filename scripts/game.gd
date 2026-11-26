@@ -29,6 +29,12 @@ var current_index := 0
 
 # Versie van het spel (Project > Instellingen > application/config/version); staat klein
 # naast de titel in het menu, zodat je ziet welke versie er live staat.
+# Webversie: meld de pagina waar het spel is ("menu", "laden: verkeer", "race: Heerlen"),
+# voor de probleemrapporten (zie html/head_include in export_presets.cfg).
+static func web_stage(stage: String) -> void:
+    if OS.has_feature("web"):
+        JavaScriptBridge.eval("window.parkstadVersion = %s; window.parkstadStage && window.parkstadStage(%s)" % [JSON.stringify(version()), JSON.stringify(stage)], true)
+
 static func version() -> String:
     return String(ProjectSettings.get_setting("application/config/version", ""))
 var _cfg := ConfigFile.new()

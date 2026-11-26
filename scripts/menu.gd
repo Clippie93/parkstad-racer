@@ -43,6 +43,7 @@ var scroll: Node
 func _ready() -> void:
     Fit.center(self)
     MenuScroll.attach(self)
+    Game.web_stage("menu")
     scroll = get_node_or_null("MenuScroll")
     tabs = Header.build(self, Game.menu_tab, _on_tab)
     race_page = _race_page()
@@ -597,7 +598,30 @@ de telefoon blijft koeler en gaat langer mee.", 16, Color("9aa3ab"))
         ab.custom_minimum_size = Vector2(360, 44)
         ab.add_theme_font_size_override("font_size", 16)
         page.add_child(ab)
+    # webversie: een probleemrapport sturen (technische gegevens, zie export_presets.cfg)
+    if OS.has_feature("web"):
+        var rh := _label("Probleem?", 20, Color("cfd3d6"))
+        rh.position = Vector2(860, Header.CONTENT_Y + 490.0)
+        page.add_child(rh)
+        var rb := _card_button("Stuur een probleemrapport", func(): pass)
+        rb.pressed.connect(_send_report.bind(rb))
+        rb.position = Vector2(860, Header.CONTENT_Y + 522.0)
+        rb.custom_minimum_size = Vector2(360, 44)
+        rb.add_theme_font_size_override("font_size", 16)
+        page.add_child(rb)
+        var rt := _label("Stuurt alleen technische gegevens mee (browser,\ngrafische chip, foutmeldingen), geen naam.", 14, Color("9aa3ab"))
+        rt.position = Vector2(860, Header.CONTENT_Y + 572.0)
+        page.add_child(rt)
     return page
+
+func _send_report(btn: Button) -> void:
+    var r = JavaScriptBridge.eval("prompt(%s, %s)" % [JSON.stringify("Wat ging er mis? (mag ook leeg)"), JSON.stringify("")], true)
+    if r == null:
+        return
+    JavaScriptBridge.eval("window.parkstadReport && window.parkstadReport(%s)" % JSON.stringify(String(r).substr(0, 500)), true)
+    btn.text = "Verstuurd, dank je!"
+    btn.disabled = true
+
 
 # Vraag iets aan de webpagina; de browser geeft ja/nee terug als 0/1 (of niets).
 func _js_true(expr: String) -> bool:

@@ -167,6 +167,7 @@ func _ready() -> void:
 	# laadscherm: eerst tonen, dan pas het level opbouwen (dat duurt op een telefoon even)
 	var screen := _loading_screen(String(info["name"]))
 	var bar: ColorRect = screen.get_meta("bar")
+	Game.web_stage("laden: %s, level bouwen" % info["name"])
 	await _loaded_step(bar, 0.04)
 	world = Node3D.new()
 	world.name = "World"
@@ -176,14 +177,17 @@ func _ready() -> void:
 	level = load(String(info["script"])).new()
 	world.add_child(level)
 	level.build()
+	Game.web_stage("laden: %s, straten" % info["name"])
 	await _loaded_step(bar, 0.55)
 	DutchStreets.new().build(level, self)
 	level.finish_streetscape()
+	Game.web_stage("laden: %s, auto en checkpoints" % info["name"])
 	await _loaded_step(bar, 0.7)
 	_car()
 	_checkpoints()
 	StaticMerge.merge(level)
 	_cull_details(level)
+	Game.web_stage("laden: %s, verkeer" % info["name"])
 	await _loaded_step(bar, 0.85)
 	_traffic()
 	_build_police_spare()
@@ -194,6 +198,7 @@ func _ready() -> void:
 		net_ghosts.name = "NetGhosts"
 		add_child(net_ghosts)
 		net_ghosts.setup(self)
+	Game.web_stage("laden: %s, shaders voorbereiden" % info["name"])
 	await _prewarm()
 	if Game.mp_active() and net_ghosts != null:
 		world.process_mode = Node.PROCESS_MODE_DISABLED
@@ -201,6 +206,7 @@ func _ready() -> void:
 	await _loaded_step(bar, 1.0)
 	screen.queue_free()
 	loading = false
+	Game.web_stage("%s: %s" % ["vrij rijden" if free else "race", info["name"]])
 	if free:
 		state = State.RACING
 		car.controls_enabled = true

@@ -5,6 +5,9 @@
 //
 //   GET  /new              -> {"code": "ABCD"}  een nieuwe, vrije kamercode
 //   GET  /room/ABCD?name=X -> WebSocket naar die kamer
+//   POST /report           -> probleemrapport van het spel opslaan (JSON, max 16 kB; geen
+//                             naam of IP-adres, alleen technische gegevens)
+//   GET  /reports?n=50     -> de laatste rapporten (alleen met Authorization: Bearer <REPORT_KEY>)
 //
 // Berichten van de server (tekst, JSON):
 //   {"t":"welcome","id":1,"host":1,"code":"ABCD","players":[{"id":1,"name":"Cliff"}]}
@@ -26,6 +29,8 @@ const MAX_PLAYERS = 8;
 const CLAIM_MS = 10 * 60 * 1000;              // een nieuwe code blijft 10 minuten gereserveerd
 
 const CORS = { "Access-Control-Allow-Origin": "*" };
+const REPORT_MAX = 16 * 1024;
+const REPORTS_KEEP = 1000;
 
 function randomCode() {
 	const buf = new Uint8Array(4);
@@ -54,6 +59,36 @@ export default {
 			}
 			const room = env.ROOMS.get(env.ROOMS.idFromName(m[1]));
 			return room.fetch(request);
+		}
+		if (url.pathname === "/report") {
+			if (request.method === "OPTIONS") {
+				return new Response(null, { headers: { ...CORS, "Access-Control-Allow-Methods": "POST", "Access-Control-Allow-Headers": "Content-Type" } });
+			}
+			if (request.method !== "POST") {
+				return new Response("Verwacht POST", { status: 405, headers: CORS });
+			}
+			const body = await request.text();
+			if (body.length > REPORT_MAX) {
+				return new Response("Te groot", { status: 413, headers: CORS });
+			}
+			let data;
+			try { data = JSON.parse(body); } catch (e) { data = null; }
+			if (!data || typeof data !== "object") {
+				return new Response("Geen JSON", { status: 400, headers: CORS });
+			}
+			// land (grof, van Cloudflare) is handig; het IP-adres bewaren we niet
+			data.country = (request.cf && request.cf.country) || "";
+			const box = env.REPORTS.get(env.REPORTS.idFromName("all"));
+			await box.fetch("https://reports/add", { method: "POST", body: JSON.stringify(data) });
+			return new Response("ok", { headers: CORS });
+		}
+		if (url.pathname === "/reports") {
+			const auth = request.headers.get("Authorization") || "";
+			if (!env.REPORT_KEY || auth !== "Bearer " + env.REPORT_KEY) {
+				return new Response("Geen toegang", { status: 401, headers: CORS });
+			}
+			const box = env.REPORTS.get(env.REPORTS.idFromName("all"));
+			return box.fetch("https://reports/list?n=" + (url.searchParams.get("n") || "50"));
 		}
 		if (url.pathname === "/") {
 			return new Response("Parkstad Racer multiplayer", { headers: CORS });
@@ -188,5 +223,30 @@ export class Room extends DurableObject {
 			await this.ctx.storage.put("host", next);
 			this.broadcast(ws, JSON.stringify({ t: "host", id: next }));
 		}
+	}
+}
+
+// Alle probleemrapporten in één Durable Object (SQLite); de oudste gaan eruit boven REPORTS_KEEP.
+export class Reports extends DurableObject {
+	constructor(ctx, env) {
+		super(ctx, env);
+		this.ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS reports (id INTEGER PRIMARY KEY AUTOINCREMENT, t INTEGER, data TEXT)");
+	}
+
+	async fetch(request) {
+		const url = new URL(request.url);
+		const sql = this.ctx.storage.sql;
+		if (url.pathname === "/add") {
+			sql.exec("INSERT INTO reports (t, data) VALUES (?, ?)", Date.now(), await request.text());
+			sql.exec("DELETE FROM reports WHERE id <= (SELECT MAX(id) FROM reports) - ?", REPORTS_KEEP);
+			return new Response("ok");
+		}
+		if (url.pathname === "/list") {
+			const n = Math.max(1, Math.min(500, parseInt(url.searchParams.get("n") || "50", 10) || 50));
+			const rows = sql.exec("SELECT id, t, data FROM reports ORDER BY id DESC LIMIT ?", n).toArray()
+				.map((r) => ({ id: r.id, time: new Date(r.t).toISOString(), ...JSON.parse(r.data) }));
+			return Response.json(rows);
+		}
+		return new Response("Niet gevonden", { status: 404 });
 	}
 }
