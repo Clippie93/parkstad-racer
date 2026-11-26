@@ -991,7 +991,7 @@ func _process(delta: float) -> void:
 			if Game.mp_active() and net_ghosts != null:
 				var left: float = net_ghosts.countdown_left()
 				if left < 0.0:
-					_big("Wachten op de andere spelers...", 0.0, Color("cfd3d6"))
+					_big("Wachten op de andere spelers...", 0.0, Color("cfd3d6"), true)
 					_update_hud()
 					return
 				countdown = left
@@ -1004,14 +1004,14 @@ func _process(delta: float) -> void:
 				if n != last_beep and n <= 3:
 					last_beep = n
 					Sfx.play(self, "beep", -4.0)
-				_big("%d" % n, 0.0, Color("f3df68"))
+				_big("%d" % n, 0.0, Color("f3df68"), true)
 			else:
 				Sfx.play(self, "go", -3.0)
 				state = State.RACING
 				car.controls_enabled = true
 				for d in rivals:
 					d.car.controls_enabled = true
-				_big("GO!", 0.9, Color("7be07b"))
+				_big("GO!", 0.9, Color("7be07b"), true)
 				_race_event_start()
 		State.RACING:
 			if free:
@@ -1876,8 +1876,13 @@ func _payout(pos: int) -> Array:
 	var line: String = ("   ".join(parts) if parts.size() > 0 else "geen inkomsten") + "   =  %s%s" % ["+" if total >= 0 else "", Game.format_money(total)]
 	return [[line, 16, Color("7be07b") if total >= 0 else Color("ef5a4f")], ["Saldo: %s" % Game.format_money(Game.money()), 18, Color("f3df68")]]
 
-func _big(text: String, hold: float, color: Color) -> void:
+# Melding midden boven in beeld. Gewone meldingen (checkpoint, flitser, ronde) klein en hoog in
+# de lucht, zodat ze de weg en het verkeer niet bedekken; het aftellen (big = true) groot, want
+# dan sta je toch stil.
+func _big(text: String, hold: float, color: Color, big := false) -> void:
 	big_label.text = text
+	big_label.add_theme_font_size_override("font_size", 54 if big else 32)
+	big_label.position.y = 150.0 if big else 92.0
 	big_label.add_theme_color_override("font_color", color)
 	big_timer = hold if hold > 0.0 else 0.0
 

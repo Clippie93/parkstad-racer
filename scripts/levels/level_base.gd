@@ -504,7 +504,7 @@ func street_sign(text: String, pos: Vector3, color := Color("f4f5e9")) -> void:
     # (gescheiden door "/") overeenkomt met een checkpointnaam.
     if _matches_checkpoint(text):
         return
-    Kit.box(self, "Sign post", pos - Vector3(0, 1.7, 0), Vector3(0.22, 3.5, 0.22), Color("d5d4cc"))
+    Kit.box(self, "Sign post", pos - Vector3(0, 1.7, 0), Vector3(0.22, 3.5, 0.22), Color("d5d4cc"), true)
     var label := Label3D.new()
     label.text = text
     label.font_size = 82
@@ -535,7 +535,7 @@ func town_sign(text: String, s: float, side := 1.0, dialect := "", sub_white := 
     var f: Node3D = _town_sign_spot(s, side)[0]
     var top := 3.3
     for x in [-1.57, 1.57]:
-        Kit.box(f, "Town sign post", Vector3(x, top * 0.5, -0.02), Vector3(0.14, top, 0.14), post_color)
+        Kit.box(f, "Town sign post", Vector3(x, top * 0.5, -0.02), Vector3(0.14, top, 0.14), post_color, true)
     Kit.box(f, "Town sign border", Vector3(0, 2.75, 0), Vector3(3.0, 1.1, 0.06), white)
     Kit.box(f, "Town sign", Vector3(0, 2.75, 0.02), Vector3(2.86, 0.96, 0.04), blue)
     Kit.label(f, text, Vector3(0, 2.75, 0.05), _fit(text, 2.6, 0.008), white, 90)
@@ -580,7 +580,7 @@ func town_board(s: float, side: float, frame_color: Color, panels: Array) -> voi
         y += dy
         top += dy
     for x in [-w * 0.5 - 0.1, w * 0.5 + 0.1]:
-        Kit.box(f, "Sign frame post", Vector3(x, top * 0.5, 0), Vector3(0.14, top, 0.14), frame_color)
+        Kit.box(f, "Sign frame post", Vector3(x, top * 0.5, 0), Vector3(0.14, top, 0.14), frame_color, true)
     Kit.box(f, "Sign frame top", Vector3(0, top - 0.07, 0), Vector3(w + 0.34, 0.14, 0.14), frame_color)
 
 # Bouwt één paneel met de bovenkant op hoogte y; geeft de hoogte terug.

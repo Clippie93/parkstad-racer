@@ -352,7 +352,7 @@ func _anwb_signs() -> void:
 
 func _handwijzer_mast(f: Node3D) -> void:
     Kit.cyl(f, "Handwijzer base", Vector3(0, 0.3, 0), 0.11, 0.11, 0.6, Color("1c1c1c"), 12)
-    Kit.cyl(f, "Handwijzer mast", Vector3(0, 2.6, 0), 0.1, 0.1, 4.0, Color("f2f2ee"), 12)
+    Kit.cyl(f, "Handwijzer mast", Vector3(0, 2.3, 0), 0.11, 0.1, 4.6, Color("f2f2ee"), 12, "y", true)   # botst, net als een lantaarnpaal
     for i in range(4):
         var band := Kit.cyl(f, "Handwijzer band", Vector3(0, 0.85 + float(i) * 0.3, 0), 0.104, 0.104, 0.13, Color("1d4f9c"), 12)
         band.rotation_degrees.z = 14.0
