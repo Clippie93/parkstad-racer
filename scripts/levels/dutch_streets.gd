@@ -587,7 +587,7 @@ func _highway_posts() -> void:
         s += 50.0
 
 # ---------------------------------------------------------------- fietspadmarkering
-# Zoals op de foto's (27-11): een onderbroken witte streep aan de wegkant van het rode
+# Zoals op de foto's (27-11): een onderbroken witte streep op de grens van asfalt en rood
 # fietspad en af en toe een witte fiets, rechtop gezien vanuit de fietser (rechts met het
 # verkeer mee, links tegemoet). Alles in twee meshes (twee tekenopdrachten). Niet op
 # kruisingen, zebrapaden, bushaltes en pleinen van bezienswaardigheden: daar ligt iets
@@ -603,8 +603,8 @@ func _bike_markings() -> void:
     var st0 := 2.0
     while st0 < r.length - 3.0:
         if _marking_ok(st0, 6.0, flats, b0):
-            dashes.append([st0, st0 + 1.0, b0 + 0.12, b0 + 0.24, MARK_Y, 1.0])
-            dashes.append([st0, st0 + 1.0, -b0 - 0.24, -b0 - 0.12, MARK_Y, 1.0])
+            dashes.append([st0, st0 + 1.0, lv.road_hw + 0.04, lv.road_hw + 0.19, MARK_Y, 1.0])
+            dashes.append([st0, st0 + 1.0, -lv.road_hw - 0.19, -lv.road_hw - 0.04, MARK_Y, 1.0])
         st0 += 2.0
     lv._ribbon("Bike path dashes", lv.LINE, dashes)
     # fietssymbolen

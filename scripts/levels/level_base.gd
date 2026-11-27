@@ -107,13 +107,15 @@ func build_road() -> void:
         # autoweg: smalle asfaltberm (vluchtstrook) naast de kantstreep, daarna gras
         _ribbon("Shoulders", ROAD_GRAY, [[0.0, L, -road_hw - 1.4, -road_hw, 0.03, 2.0], [0.0, L, road_hw, road_hw + 1.4, 0.03, 2.0]])
     else:
-        # Nederlands wegprofiel: smalle band, rood fietspad, dan het trottoir
-        var b0: float = road_hw + CURB_W
-        var b1: float = b0 + BIKE_W
-        _ribbon("Curbs", SIDEWALK, [[0.0, L, -b0, -road_hw, 0.07, 2.0], [0.0, L, road_hw, b0, 0.07, 2.0]])
-        _ribbon("Bike paths", BIKE_RED, [[0.0, L, -b1, -b0, 0.065, 2.0], [0.0, L, b0, b1, 0.065, 2.0]])
+        # Nederlands wegprofiel: het rode fietspad sluit direct aan op het asfalt (naar jouw
+        # foto's, 28-11: geen band en geen kantstreep ertussen, alleen een onderbroken witte
+        # streep op de grens, zie DutchStreets), dan het trottoir. Het fietspad loopt over de
+        # strook van de vroegere band (CURB_W) door, zodat alle afstanden gelijk blijven.
+        var b1: float = road_hw + CURB_W + BIKE_W
+        _ribbon("Bike paths", BIKE_RED, [[0.0, L, -b1, -road_hw, 0.065, 2.0], [0.0, L, road_hw, b1, 0.065, 2.0]])
         _ribbon("Sidewalks", SIDEWALK, [[0.0, L, -b1 - WALK_W, -b1, 0.07, 2.0], [0.0, L, b1, b1 + WALK_W, 0.07, 2.0]])
-    _ribbon("Edge lines", LINE, [[0.0, L, -road_hw + 0.5, -road_hw + 0.65, 0.045, 2.0], [0.0, L, road_hw - 0.65, road_hw - 0.5, 0.045, 2.0]])
+    if dual:
+        _ribbon("Edge lines", LINE, [[0.0, L, -road_hw + 0.5, -road_hw + 0.65, 0.045, 2.0], [0.0, L, road_hw - 0.65, road_hw - 0.5, 0.045, 2.0]])
     var dashes: Array = []
     var s := 4.0
     while s < L - 6.0:
