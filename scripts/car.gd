@@ -437,6 +437,7 @@ func _resolve_collisions(forward: Vector3) -> void:
                 if prot > -0.05 and prot < STEP_OUT_MAX:
                     step_out = maxf(step_out, prot + 0.04)
                     continue
+        var side_by_side := false
         if is_car and other is Node3D:
             # Naast elkaar (zijkant tegen zijkant, ongeveer dezelfde kant op): alleen opzij
             # duwen. De botsrichting van twee schuine dozen kreeg anders een stuk naar voren
@@ -452,6 +453,7 @@ func _resolve_collisions(forward: Vector3) -> void:
             var lon: float = d.dot(fw)
             if same_way and absf(lat) > SIDE_BY_SIDE_LAT and absf(lon) < SIDE_BY_SIDE_LON:
                 n = -rt * signf(lat)
+                side_by_side = true
         var rel: Vector3 = motion + nudge - ov
         var into: float = -rel.dot(n)
         if into <= 0.0:
@@ -460,9 +462,18 @@ func _resolve_collisions(forward: Vector3) -> void:
         impact_speed = maxf(impact_speed, into)
         var head_on: float = clampf(into / maxf(rel.length(), 0.1), 0.0, 1.0)
         var bounce: float = 0.0 if is_car else minf(into * WALL_BOUNCE, WALL_BOUNCE_MAX)
+        if other is ArcadeCar and side_by_side:
+            # Zij aan zij (zoals in het echt, twee auto's van 100 km/u die elkaar met de flank
+            # raken): alleen een duw opzij, niemand verliest of wint snelheid. Wrijving langs
+            # elkaar werkte alleen in de beeldjes waarin het contact gemeten werd, om en om
+            # bij de een en de ander: de snellere kreeg een tik terug, de langzamere een tik
+            # vooruit, en dat zag eruit als stotteren.
+            other.push_side(-n * into * 0.5)
+            car_dv += n * into * 0.5
+            continue
         if other is ArcadeCar:
             # een andere racer geeft mee: allebei de helft (achterop: hij wordt geduwd,
-            # opzij: hij schuift een stukje mee)
+            # schuin: hij schuift een stukje mee)
             other.push(-n * into * 0.5)
             car_dv += n * into * 0.5
             # schuren: wrijving op het snelheidsverschil langs elkaar, ook gedeeld (de
@@ -511,6 +522,12 @@ func _resolve_collisions(forward: Vector3) -> void:
 # Snelheidsverandering van buitenaf (geduwd door een andere auto).
 func push(dv: Vector3) -> void:
     _take_push(dv)
+
+# Alleen opzij geduwd (zij aan zij): wat in zijn eigen rijrichting zou vallen telt niet mee.
+func push_side(dv: Vector3) -> void:
+    var f := -global_transform.basis.z
+    dv.y = 0.0
+    _take_push(dv - f * dv.dot(f))
 
 # Vooruit/achteruit gaat naar de rijsnelheid (achterop geduwd), opzij wordt een korte duw.
 func _take_push(dv: Vector3) -> void:
