@@ -97,8 +97,22 @@ func _cyclists() -> void:
         var c := Cyclist.new()
         lv.add_child(c)
         var side: float = 1.0 if i % 2 == 0 else -1.0
-        c.setup(lv, r.length * (float(i) + rng.randf() * 0.5) / float(n), rng.randf_range(4.0, 6.5), side,
-            shirts[rng.randi_range(0, shirts.size() - 1)], bikes[rng.randi_range(0, bikes.size() - 1)])
+        var at: float = r.length * (float(i) + rng.randf() * 0.5) / float(n)
+        # soort fietser: buiten de bebouwde kom vaker een wielrenner (Limburgs heuvelland)
+        var kinds := ["city", "city", "crate", "child", "backpack", "ebike", "racer"]
+        if not lv.is_town(at):
+            kinds += ["racer", "racer", "ebike"]
+        var kind: String = kinds[rng.randi_range(0, kinds.size() - 1)]
+        var v: float = rng.randf_range(4.0, 6.5)
+        var shirt: Color = shirts[rng.randi_range(0, shirts.size() - 1)]
+        var bike: Color = bikes[rng.randi_range(0, bikes.size() - 1)]
+        if kind == "racer":
+            v = rng.randf_range(8.5, 11.0)
+            shirt = [Color("e8c21c"), Color("1f6fd0"), Color("d2283a"), Color("1fa36a"), Color("f07a1c"), Color("ececec")][rng.randi_range(0, 5)]
+            bike = [Color("101114"), Color("c8c8cc"), Color("b0201a"), Color("1e4fa8")][rng.randi_range(0, 3)]
+        elif kind == "ebike":
+            v = rng.randf_range(6.0, 7.2)
+        c.setup(lv, at, v, side, shirt, bike, kind, i + int(lv.seed_value) * 31)
 
 # ---------------------------------------------------------------- kruisingen
 # Eén of twee kruisingen met verkeerslichten per level, op een recht stuk in de bebouwde
