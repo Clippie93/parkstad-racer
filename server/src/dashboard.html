@@ -81,6 +81,9 @@ th:first-child, td:first-child { text-align: left; }
 .lv .hr { grid-template-columns: minmax(88px, 18%) 1fr 2.5em; }
 .lv .ht i { height: 22px; }
 .hv { font-variant-numeric: tabular-nums; }
+.loads .load { padding: 10px 0; border-top: 1px solid var(--line); font-size: 14px; line-height: 1.45; overflow-wrap: anywhere; }
+.loads .steps { font-size: 13px; color: var(--text-2); }
+.loads .steps b { color: var(--text); }
 </style>
 </head>
 <body>
@@ -309,7 +312,25 @@ th:first-child, td:first-child { text-align: left; }
 				['Laden', function (r) { return secs(r.load_ms_med, 20000); }],
 				['Beeldjes/s', function (r) { return fpsTxt(r.fps_med); }],
 				['Haperingen', function (r) { return slowTxt(r.slow_med); }]])
+			+ slowLoads(p.slow_loads, dev)
 			+ '</div>';
+	}
+	/* trage laadbeurten (8 s of meer) met de tijd per stap; "eerste" = eerste race na het openen, alles nog koud */
+	function slowLoads(rows, dev) {
+		if (!rows || !rows.length) return '';
+		return '<h3>Trage laadbeurten</h3><div class="sub">8 seconden of langer, nieuwste eerst. Per stap: wacht = beeldjes tekenen tussen de stappen (daar worden shaders vaak al gemaakt)</div>'
+			+ '<div class="loads">' + rows.map(function (r) {
+				var when = new Date(r.t).toLocaleString('nl-NL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+				/* de langste stap vet, met seconden */
+				var parts = String(r.steps || '').split(', ').filter(Boolean).map(function (x) { var i = x.lastIndexOf(' '); return [x.slice(0, i), +x.slice(i + 1)]; });
+				var top = parts.reduce(function (m, x) { return x[1] > m ? x[1] : m; }, 0);
+				var steps = parts.length ? parts.map(function (x) { var t = esc(x[0]) + ' ' + (x[1] / 1000).toFixed(1).replace('.', ',') + ' s'; return x[1] === top ? '<b>' + t + '</b>' : t; }).join(' · ') : 'geen stappen (oude versie)';
+				return '<div class="load"><div><b>' + esc(LEVELS[r.lvl] || r.lvl) + '</b> · ' + secs(r.load_ms)
+					+ (r.nth == null ? '' : r.nth === 1 ? ' · eerste race na openen' : ' · ' + r.nth + 'e race na openen')
+					+ ' <span class="muted">' + when + '</span></div>'
+					+ '<div class="muted">' + esc(dev(r.dev) + ', ' + r.br + (r.gpu ? ' · ' + r.gpu : '')) + '</div>'
+					+ '<div class="steps">' + steps + '</div></div>';
+			}).join('') + '</div>';
 	}
 
 	/* breedte van een kaart van dit deel van de 12 kolommen (op de telefoon: de hele breedte) */

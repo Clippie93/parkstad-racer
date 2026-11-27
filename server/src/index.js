@@ -59,7 +59,7 @@ function cleanEvent(d) {
 		lvl: str(d.lvl, 24), mode: str(d.mode, 8), diff: num(d.diff), car: str(d.car, 24),
 		res: str(d.res, 10), pos: num(d.pos), secs: num(d.secs), n: num(d.n), cp: num(d.cp),
 		boot_ms: num(d.boot_ms), load_ms: num(d.load_ms), prewarm_ms: num(d.prewarm_ms), fps: num(d.fps), slow: num(d.slow),
-		gpu: str(d.gpu, 60), gfx: str(d.gfx, 8),
+		gpu: str(d.gpu, 60), gfx: str(d.gfx, 8), steps: str(d.steps, 200), nth: num(d.nth),
 	};
 }
 
@@ -429,6 +429,10 @@ export class Stats extends DurableObject {
 			pos INTEGER, secs REAL, n INTEGER, cp INTEGER, boot_ms INTEGER, load_ms INTEGER, prewarm_ms INTEGER,
 			fps REAL, slow REAL, gpu TEXT, gfx TEXT)`);
 		this.ctx.storage.sql.exec("CREATE INDEX IF NOT EXISTS ev_day ON ev (day)");
+		// later toegevoegd: tijd per laadstap en de hoeveelste race sinds openen
+		const cols = this.ctx.storage.sql.exec("PRAGMA table_info(ev)").toArray().map((c) => c.name);
+		if (!cols.includes("steps")) this.ctx.storage.sql.exec("ALTER TABLE ev ADD COLUMN steps TEXT");
+		if (!cols.includes("nth")) this.ctx.storage.sql.exec("ALTER TABLE ev ADD COLUMN nth INTEGER");
 	}
 
 	async fetch(request) {
@@ -440,11 +444,11 @@ export class Stats extends DurableObject {
 			const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Amsterdam", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hourCycle: "h23" })
 				.formatToParts(now).map((p) => [p.type, p.value]));
 			sql.exec(`INSERT INTO ev (t, day, hour, e, vid, v, dev, br, app, lvl, mode, diff, car, res, pos, secs, n, cp,
-				boot_ms, load_ms, prewarm_ms, fps, slow, gpu, gfx)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				boot_ms, load_ms, prewarm_ms, fps, slow, gpu, gfx, steps, nth)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 				now.getTime(), `${parts.year}-${parts.month}-${parts.day}`, parseInt(parts.hour, 10), d.e, d.vid, d.v, d.dev, d.br, d.app,
 				d.lvl, d.mode, d.diff, d.car, d.res, d.pos, d.secs, d.n, d.cp,
-				d.boot_ms, d.load_ms, d.prewarm_ms, d.fps, d.slow, d.gpu, d.gfx);
+				d.boot_ms, d.load_ms, d.prewarm_ms, d.fps, d.slow, d.gpu, d.gfx, d.steps ?? "", d.nth);
 			if (Math.random() < 0.01) {
 				sql.exec("DELETE FROM ev WHERE t < ?", now.getTime() - 366 * 86400000);
 			}
@@ -525,6 +529,9 @@ export class Stats extends DurableObject {
 				devices: merge(merge(group(opens, "dev", ["boot_ms"]), group(loads, "dev", ["load_ms", "prewarm_ms"])), group(runs, "dev", ["fps", "slow"])),
 				levels: merge(group(loads, "lvl", ["load_ms", "prewarm_ms"]), group(runs, "lvl", ["fps", "slow"])),
 				gpus: merge(group(loads, "gpu", ["load_ms"]), group(runs, "gpu", ["fps", "slow"])).filter((r) => r.k !== "?").slice(0, 12),
+				// de traagste laadbeurten, met de tijd per stap (nth 1 = eerste race na openen)
+				slow_loads: q(`SELECT t, dev, br, gpu, lvl, load_ms, prewarm_ms, steps, nth FROM ev
+					WHERE day >= ? AND e = 'race_start' AND load_ms >= 8000 ORDER BY t DESC LIMIT 15`, since),
 			};
 			return Response.json(out);
 		}

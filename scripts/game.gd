@@ -44,6 +44,7 @@ static func web_event(kind: String, data: Dictionary = {}) -> void:
 static func version() -> String:
     return String(ProjectSettings.get_setting("application/config/version", ""))
 var _cfg := ConfigFile.new()
+var races_opened := 0   # races geladen sinds het spel open is (statistiek: eerste keer laden is koud)
 
 func _ready() -> void:
     _cfg.load(save_path)

@@ -178,18 +178,24 @@ func _ready() -> void:
 	level = load(String(info["script"])).new()
 	world.add_child(level)
 	level.build()
+	_ev_mark("bouwen")
 	Game.web_stage("laden: %s, straten" % info["name"])
 	await _loaded_step(bar, 0.55)
+	_ev_mark("wacht1")
 	DutchStreets.new().build(level, self)
 	level.finish_streetscape()
+	_ev_mark("straten")
 	Game.web_stage("laden: %s, auto en checkpoints" % info["name"])
 	await _loaded_step(bar, 0.7)
+	_ev_mark("wacht2")
 	_car()
 	_checkpoints()
 	StaticMerge.merge(level)
 	_cull_details(level)
+	_ev_mark("auto")
 	Game.web_stage("laden: %s, verkeer" % info["name"])
 	await _loaded_step(bar, 0.85)
+	_ev_mark("wacht3")
 	_traffic()
 	_build_police_spare()
 	_hud()
@@ -199,10 +205,12 @@ func _ready() -> void:
 		net_ghosts.name = "NetGhosts"
 		add_child(net_ghosts)
 		net_ghosts.setup(self)
+	_ev_mark("verkeer")
 	Game.web_stage("laden: %s, shaders voorbereiden" % info["name"])
 	var prewarm_t0 := Time.get_ticks_msec()
 	await _prewarm()
 	_ev_prewarm_ms = Time.get_ticks_msec() - prewarm_t0
+	_ev_mark("shaders")
 	if Game.mp_active() and net_ghosts != null:
 		world.process_mode = Node.PROCESS_MODE_DISABLED
 		net_ghosts.mp_loaded()
@@ -210,6 +218,9 @@ func _ready() -> void:
 	screen.queue_free()
 	loading = false
 	_ev_load_ms = Time.get_ticks_msec() - _ev_load_t0
+	_ev_mark("klaar")
+	Game.races_opened += 1
+	_ev_nth = Game.races_opened
 	Game.web_stage("%s: %s" % ["vrij rijden" if free else "race", info["name"]])
 	if free:
 		state = State.RACING
@@ -661,16 +672,25 @@ var _ev_ended := false
 var _ev_load_t0 := 0
 var _ev_load_ms := 0
 var _ev_prewarm_ms := 0
+var _ev_steps := ""            # "bouwen 812, wacht1 40, ..." : ms per laadstap
+var _ev_step_t := -1
+var _ev_nth := 0               # hoeveelste race sinds het spel geopend is (1 = koude start, nog niets in de cache)
 var _ev_frames := 0
 var _ev_frame_time := 0.0
 var _ev_slow := 0              # beeldjes trager dan 50 ms (haperingen)
+
+func _ev_mark(step: String) -> void:
+	var now := Time.get_ticks_msec()
+	var from := _ev_load_t0 if _ev_step_t < 0 else _ev_step_t
+	_ev_steps += ("" if _ev_steps == "" else ", ") + "%s %d" % [step, now - from]
+	_ev_step_t = now
 
 func _race_event_start() -> void:
 	_ev_started = true
 	Game.web_event("race_start", {"lvl": String(Game.current_level()["id"]), "mode": _ev_mode(),
 		"diff": Game.difficulty(), "car": "john" if (Game.mp_active() and String(Game.mp.get("rule", "")) == "equal") else Game.selected_car(),
 		"n": 1 + rivals.size() + (net_ghosts.rows().size() if net_ghosts != null else 0),
-		"load_ms": _ev_load_ms, "prewarm_ms": _ev_prewarm_ms, "gpu": RenderingServer.get_video_adapter_name().substr(0, 60),
+		"load_ms": _ev_load_ms, "prewarm_ms": _ev_prewarm_ms, "steps": _ev_steps, "nth": _ev_nth, "gpu": RenderingServer.get_video_adapter_name().substr(0, 60),
 		"gfx": Game.graphics_mode()})
 
 func _race_event(res: String, pos: int) -> void:
