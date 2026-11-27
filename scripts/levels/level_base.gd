@@ -102,7 +102,10 @@ func _ribbon(n: String, color: Color, strips: Array) -> void:
 
 func build_road() -> void:
     var L: float = route.length
-    _ribbon("Asphalt", ROAD_GRAY, [[0.0, L, -road_hw, road_hw, 0.03, 2.0]])
+    # het asfalt loopt 40 cm onder het (3,5 cm hogere) fietspad door: anders zie je door de
+    # kier bij de opstaande rand het gras eronder, als een groen lijntje
+    var under: float = 0.0 if dual else 0.4
+    _ribbon("Asphalt", ROAD_GRAY, [[0.0, L, -road_hw - under, road_hw + under, 0.03, 2.0]])
     if dual:
         # autoweg: smalle asfaltberm (vluchtstrook) naast de kantstreep, daarna gras
         _ribbon("Shoulders", ROAD_GRAY, [[0.0, L, -road_hw - 1.4, -road_hw, 0.03, 2.0], [0.0, L, road_hw, road_hw + 1.4, 0.03, 2.0]])
@@ -114,6 +117,9 @@ func build_road() -> void:
         var b1: float = road_hw + CURB_W + BIKE_W
         _ribbon("Bike paths", BIKE_RED, [[0.0, L, -b1, -road_hw, 0.065, 2.0], [0.0, L, road_hw, b1, 0.065, 2.0]])
         _ribbon("Sidewalks", SIDEWALK, [[0.0, L, -b1 - WALK_W, -b1, 0.07, 2.0], [0.0, L, b1, b1 + WALK_W, 0.07, 2.0]])
+        # en onder de trottoirrand (een halve cm hoger dan het fietspad) een strook in dezelfde
+        # kleur, 3 cm lager: anders zie je door die kier een licht stippellijntje
+        _ribbon("Sidewalk skirts", SIDEWALK, [[0.0, L, -b1 - 0.4, -b1, 0.04, 2.0], [0.0, L, b1, b1 + 0.4, 0.04, 2.0]])
     if dual:
         _ribbon("Edge lines", LINE, [[0.0, L, -road_hw + 0.5, -road_hw + 0.65, 0.045, 2.0], [0.0, L, road_hw - 0.65, road_hw - 0.5, 0.045, 2.0]])
     var dashes: Array = []
