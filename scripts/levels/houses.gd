@@ -40,7 +40,8 @@ static func info(kind: String) -> Dictionary:
 		"semi":
 			return {"w": 14.6, "d": 9.5, "front": 3.4, "h": 9.6, "walls": MIXED, "roofs": ROOFS}
 		"detached":
-			return {"w": 13.0, "d": 10.0, "front": 3.6, "h": 10.0, "walls": MIXED, "roofs": ROOFS}
+			# boom in de voortuin (zie _detached): stam op x = -4,4, z = 1,6; botst (27-11)
+			return {"w": 13.0, "d": 10.0, "front": 3.6, "h": 10.0, "walls": MIXED, "roofs": ROOFS, "trees": [Vector2(-4.4, 1.6)]}
 		"mine":
 			return {"w": 20.0, "d": 8.0, "front": 3.4, "h": 8.6, "walls": BRICK, "roofs": ROOFS}
 		"farm":

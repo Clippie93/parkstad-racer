@@ -190,6 +190,8 @@ func _ready() -> void:
 	_ev_mark("wacht2")
 	_car()
 	_checkpoints()
+	if level.has_method("solid_trees"):
+		level.solid_trees()
 	StaticMerge.merge(level)
 	_cull_details(level)
 	_ev_mark("auto")

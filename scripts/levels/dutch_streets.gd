@@ -1,7 +1,7 @@
 extends RefCounted
 # Nederlandse verkeerselementen langs de route van een level. Wordt na level.build()
 # aangeroepen door de race (build(level, race)), dus elk level krijgt ze vanzelf.
-# - fietsers op de rode fietspaden
+# - fietsers op de rode fietspaden, met een onderbroken witte streep en af en toe een fiets
 # - zebrapaden met blauwe borden en paaltjes (in de bebouwde kom)
 # - snelheidsborden (50 in de kom, 80 erbuiten, 100 op de Buitenring)
 # - voorrangswegborden (oranje ruit) en handwijzers vlak voor de kruisingen
@@ -17,6 +17,8 @@ var r
 var rng := RandomNumberGenerator.new()
 var used: Array = []        # afstanden waar al iets staat (niet alles op één plek)
 var crossings: Array = []   # afstanden van de kruisingen met verkeerslichten
+var zebra_s: Array = []     # afstanden van de zebrapaden
+var bus_s: Array = []       # afstanden van de bushaltes
 
 func build(level, race) -> void:
     lv = level
@@ -41,6 +43,7 @@ func build(level, race) -> void:
     _bus_stops()
     _speed_cameras(race, 2)
     _planters_and_bins()
+    _bike_markings()
 
 # ---------------------------------------------------------------- hulpjes
 func _free(s: float, gap: float) -> bool:
@@ -145,6 +148,7 @@ func _zebras() -> void:
         if lv.is_town(s) and _straight(s) and _free(s, 60.0) and _ok_place(s, 1.0, _walk_offset()) and _ok_place(s, -1.0, _walk_offset()):
             _zebra(s)
             used.append(s)
+            zebra_s.append(s)
             s += 380.0
         else:
             s += 20.0
@@ -392,6 +396,7 @@ func _bus_stops() -> void:
         if lv.is_town(s) and _straight(s) and _free(s, 50.0) and _ok_place(s, side, off):
             _bus_stop(s, side)
             used.append(s)
+            bus_s.append(s)
             made += 1
             s += r.length * 0.35
         else:
@@ -580,3 +585,147 @@ func _highway_posts() -> void:
             Kit.label(g, txt, Vector3(0, 1.1, 0.02), minf(0.004, 0.3 / (float(txt.length()) * 64.0 * 0.6)), Color.WHITE, 64)
             hm += 1
         s += 50.0
+
+# ---------------------------------------------------------------- fietspadmarkering
+# Zoals op de foto's (27-11): een onderbroken witte streep aan de wegkant van het rode
+# fietspad en af en toe een witte fiets, rechtop gezien vanuit de fietser (rechts met het
+# verkeer mee, links tegemoet). Alles in twee meshes (twee tekenopdrachten). Niet op
+# kruisingen, zebrapaden, bushaltes en pleinen van bezienswaardigheden: daar ligt iets
+# anders bovenop, en twee vlakken op bijna dezelfde hoogte gaan knipperen.
+const MARK_Y := 0.075          # fietspad ligt op 0,065: 1 cm erboven
+const BIKE_SYMBOL_EVERY := 70.0
+
+func _bike_markings() -> void:
+    var b0: float = lv.road_hw + lv.CURB_W
+    var flats := _flat_overlays()
+    # onderbroken streep: 1 m streep, 1 m open
+    var dashes: Array = []
+    var st0 := 2.0
+    while st0 < r.length - 3.0:
+        if _marking_ok(st0, 6.0, flats, b0):
+            dashes.append([st0, st0 + 1.0, b0 + 0.12, b0 + 0.24, MARK_Y, 1.0])
+            dashes.append([st0, st0 + 1.0, -b0 - 0.24, -b0 - 0.12, MARK_Y, 1.0])
+        st0 += 2.0
+    lv._ribbon("Bike path dashes", lv.LINE, dashes)
+    # fietssymbolen
+    var xf: Array[Transform3D] = []
+    var mid: float = b0 + lv.BIKE_W * 0.5 + 0.06
+    var sb := 40.0
+    var side := 1.0
+    while sb < r.length - 40.0:
+        if _marking_ok(sb, 12.0, flats, b0) and _free(sb, 10.0):
+            var a: Vector3 = r.pos_at(sb - 1.0)
+            var b: Vector3 = r.pos_at(sb + 1.0)
+            var fwd: Vector3 = (b - a).normalized()
+            var right: Vector3 = r.right_at(sb)
+            if side < 0.0:
+                fwd = -fwd
+                right = -right
+            var up: Vector3 = right.cross(fwd).normalized()
+            if up.y < 0.0:
+                up = -up
+            var at: Vector3 = r.pos_at(sb) + r.right_at(sb) * side * mid
+            at.y = r.pos_at(sb).y + MARK_Y + 0.001
+            xf.append(Transform3D(Basis(right, up, -fwd), at))
+        sb += BIKE_SYMBOL_EVERY * 0.5
+        side = -side
+    if xf.is_empty():
+        return
+    var mm := MultiMesh.new()
+    mm.transform_format = MultiMesh.TRANSFORM_3D
+    mm.mesh = _bike_symbol_mesh()
+    mm.instance_count = xf.size()
+    for i in xf.size():
+        mm.set_instance_transform(i, xf[i])
+    var mmi := MultiMeshInstance3D.new()
+    mmi.name = "Bike path symbols"
+    mmi.multimesh = mm
+    mmi.material_override = Kit.two_sided_mat(lv.LINE)
+    mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    lv.add_child(mmi)
+
+# Mag hier markering liggen? Niet bij kruisingen (zijweg ligt over het fietspad), zebrapaden,
+# bushaltes, in een bezienswaardigheid, of waar een plat vlak (plein, perron) over het
+# fietspad ligt.
+func _marking_ok(s: float, gap: float, flats: Dictionary, b0: float) -> bool:
+    for c in crossings:
+        if absf(float(c) - s) < Intersection.SIDE_HW + 6.0 + gap:
+            return false
+    for z in zebra_s + bus_s:
+        if absf(float(z) - s) < 8.0 + gap:
+            return false
+    for side in [-1.0, 1.0]:
+        var p: Vector3 = r.pos_at(s) + r.right_at(s) * side * (b0 + lv.BIKE_W * 0.5)
+        if lv.in_landmark(p):
+            return false
+        for box in flats.get(Vector2i(floori(p.x / FLAT_CELL), floori(p.z / FLAT_CELL)), []):
+            var bb: AABB = box
+            if p.x > bb.position.x - 0.5 and p.x < bb.end.x + 0.5 and p.z > bb.position.z - 0.5 and p.z < bb.end.z + 0.5 \
+                    and bb.end.y > p.y + 0.03 and bb.position.y < p.y + 0.4:
+                return false
+    return true
+
+# Platte dingen op straathoogte (pleinen, perrons, opritten) als wereld-AABB's, per vak van
+# FLAT_CELL meter (snel opzoeken). De weg zelf (de lange linten) telt niet mee.
+const FLAT_CELL := 20.0
+func _flat_overlays() -> Dictionary:
+    var out := {}
+    for n in lv.find_children("*", "MeshInstance3D", true, false):
+        var mi := n as MeshInstance3D
+        if mi.mesh == null:
+            continue
+        var bb: AABB = mi.global_transform * mi.mesh.get_aabb()
+        if bb.size.y > 0.5 or bb.size.x > 400.0 or bb.size.z > 400.0:
+            continue
+        for cx in range(floori(bb.position.x / FLAT_CELL), floori(bb.end.x / FLAT_CELL) + 1):
+            for cz in range(floori(bb.position.z / FLAT_CELL), floori(bb.end.z / FLAT_CELL) + 1):
+                var key := Vector2i(cx, cz)
+                if not out.has(key):
+                    out[key] = []
+                out[key].append(bb)
+    return out
+
+# Witte fiets van opzij, plat op de grond: lengte dwars over het pad (x), "boven" van de fiets
+# in rijrichting (-z). Ongeveer 1,3 m breed.
+func _bike_symbol_mesh() -> ArrayMesh:
+    var st := SurfaceTool.new()
+    st.begin(Mesh.PRIMITIVE_TRIANGLES)
+    var k := 0.85
+    var w := 0.1
+    var to3 := func(v: Vector2) -> Vector3: return Vector3(v.x * k, 0.0, -v.y * k)
+    var quad := func(a: Vector2, b: Vector2, c: Vector2, d: Vector2) -> void:
+        for v in [a, b, c, a, c, d]:
+            st.set_normal(Vector3.UP)
+            st.add_vertex(to3.call(v))
+    var stick := func(a: Vector2, b: Vector2) -> void:
+        var n: Vector2 = (b - a).normalized().orthogonal() * w * 0.5
+        var e: Vector2 = (b - a).normalized() * w * 0.3
+        quad.call(a - e + n, b + e + n, b + e - n, a - e - n)
+    # wielen: ringen
+    for cx in [-0.52, 0.52]:
+        var c := Vector2(cx, 0.0)
+        var ro := 0.3
+        var ri := ro - w
+        var segs := 22
+        for i in segs:
+            var t0: float = TAU * i / segs
+            var t1: float = TAU * (i + 1) / segs
+            quad.call(c + Vector2(cos(t0), sin(t0)) * ri, c + Vector2(cos(t0), sin(t0)) * ro,
+                c + Vector2(cos(t1), sin(t1)) * ro, c + Vector2(cos(t1), sin(t1)) * ri)
+    # frame: trapas, zadelpen, stuurbuis, achtervork en voorvork
+    var bb := Vector2(-0.02, 0.02)
+    var seat := Vector2(-0.18, 0.46)
+    var head := Vector2(0.36, 0.44)
+    var rear := Vector2(-0.52, 0.0)
+    var front := Vector2(0.52, 0.0)
+    stick.call(bb, seat)
+    stick.call(seat, head)
+    stick.call(bb, head)
+    stick.call(bb, rear)
+    stick.call(seat, rear)
+    stick.call(head, front)
+    # zadel en stuur
+    stick.call(Vector2(-0.3, 0.52), Vector2(-0.08, 0.52))
+    stick.call(head, Vector2(0.3, 0.6))
+    stick.call(Vector2(0.3, 0.6), Vector2(0.42, 0.62))
+    return st.commit()

@@ -309,6 +309,15 @@ func _add_plot(kind: String, inf: Dictionary, sc: float, side: float, front: flo
     cs.shape = shape
     cs.position = Vector3(0, h * 0.5, -d * 0.5)
     body.add_child(cs)
+    # bomen in de voortuin botsen ook (het huisblok houdt op bij de gevel)
+    for t in inf.get("trees", []):
+        var tcs := CollisionShape3D.new()
+        var tshape := CylinderShape3D.new()
+        tshape.radius = 0.3
+        tshape.height = 3.0
+        tcs.shape = tshape
+        tcs.position = Vector3(t.x, 1.5, t.y)
+        body.add_child(tcs)
     var foot := MeshInstance3D.new()
     var fm := BoxMesh.new()
     var fd: float = d + float(inf["front"])
@@ -1068,3 +1077,77 @@ func in_landmark(p: Vector3) -> bool:
         if r.get_area() < 60000.0 and r.has_point(Vector2(p.x, p.z)):
             return true
     return false
+
+# Bomen botsen (27-11): elke boomstam zonder eigen botsvorm krijgt een onzichtbare cilinder.
+# Losse stammen (MeshInstance met "trunk" in de naam) altijd; stammen in een MultiMesh (bos,
+# landschap) tot TREE_SOLID_DIST van de route, voor zover daar nog geen botsvorm staat.
+# Struiken en kruinen blijven doorrijdbaar. Wordt aangeroepen voordat StaticMerge de losse
+# onderdelen samenvoegt (dan zijn de namen weg). Geeft het aantal nieuwe botsvormen terug.
+const TREE_SOLID_DIST := 45.0
+func solid_trees() -> int:
+    var have := {}        # vakjes van 2 m met al een ronde botsvorm (bomen uit forest() e.d.)
+    for body in find_children("*", "StaticBody3D", true, false):
+        for cs in body.get_children():
+            if cs is CollisionShape3D and cs.shape is CylinderShape3D:
+                var q: Vector3 = (cs as Node3D).global_position
+                have[Vector2i(floori(q.x / 2.0), floori(q.z / 2.0))] = true
+    var added := 0
+    for n in find_children("*", "MeshInstance3D", true, false):
+        var mi := n as MeshInstance3D
+        if not String(mi.name).to_lower().contains("trunk") or mi.mesh == null:
+            continue
+        var solid := false
+        var up: Node = mi.get_parent()
+        while up != null and up != self:
+            if up is CollisionObject3D:
+                solid = true
+                break
+            up = up.get_parent()
+        if solid:
+            continue
+        var r: float = 0.3
+        var h: float = 4.0
+        if mi.mesh is CylinderMesh:
+            var cm := mi.mesh as CylinderMesh
+            r = maxf(cm.top_radius, cm.bottom_radius)
+            h = cm.height
+        else:
+            var bb: AABB = mi.mesh.get_aabb()
+            r = maxf(bb.size.x, bb.size.z) * 0.5
+            h = bb.size.y
+        var sc: Vector3 = mi.global_transform.basis.get_scale()
+        _tree_body(mi.global_position, r * maxf(sc.x, sc.z), h * sc.y)
+        added += 1
+    for n in find_children("*", "MultiMeshInstance3D", true, false):
+        var mmi := n as MultiMeshInstance3D
+        if not String(mmi.name).to_lower().contains("trunk") or mmi.multimesh == null:
+            continue
+        var mm := mmi.multimesh
+        var r0: float = 0.3
+        if mm.mesh is CylinderMesh:
+            r0 = maxf((mm.mesh as CylinderMesh).top_radius, (mm.mesh as CylinderMesh).bottom_radius)
+        for i in mm.instance_count:
+            var t: Transform3D = mmi.global_transform * mm.get_instance_transform(i)
+            var p: Vector3 = t.origin
+            if have.has(Vector2i(floori(p.x / 2.0), floori(p.z / 2.0))):
+                continue
+            if route.distance_to(p) > TREE_SOLID_DIST:
+                continue
+            var sc: Vector3 = t.basis.get_scale()
+            _tree_body(p, r0 * maxf(sc.x, sc.z), sc.y)
+            added += 1
+    return added
+
+func _tree_body(center: Vector3, r: float, h: float) -> void:
+    var body := StaticBody3D.new()
+    body.name = "Tree body"
+    body.add_to_group("tree_body")
+    var cs := CollisionShape3D.new()
+    var shape := CylinderShape3D.new()
+    shape.radius = clampf(r, 0.12, 0.7)
+    shape.height = clampf(h, 1.5, 8.0)
+    cs.shape = shape
+    body.add_child(cs)
+    add_child(body)
+    # onderkant van de cilinder op de voet van de stam
+    body.global_position = center - Vector3(0, h * 0.5, 0) + Vector3(0, shape.height * 0.5, 0)
