@@ -373,6 +373,19 @@ func _build(shirt: Color, bike: Color, seed_n: int) -> void:
         add_child(shin)
         legs.append([thigh, shin, hip + Vector3(sx * 0.1, 0, 0), sx])
     _pose_legs()
+    _hit_area(Vector3(0.7, 1.8, 1.7))
+
+# aanraakzone: een auto die hier doorheen rijdt, raakt de fietser
+func _hit_area(size: Vector3) -> void:
+    var area := Area3D.new()
+    var cs := CollisionShape3D.new()
+    var box := BoxShape3D.new()
+    box.size = size
+    cs.shape = box
+    cs.position.y = size.y * 0.5
+    area.add_child(cs)
+    add_child(area)
+    area.body_entered.connect(_on_hit)
 
 # Benen op de trappers: trapper op de cirkel rond de trapas, knie met twee-delige IK in het
 # vlak van de fiets (knie naar voren).
@@ -403,17 +416,6 @@ func _down_to(v: Vector3) -> Basis:
         return Basis()
     return Basis(Quaternion(Vector3.DOWN, d))
 
-    # aanraakzone: een auto die hier doorheen rijdt, raakt de fietser
-    var area := Area3D.new()
-    var cs := CollisionShape3D.new()
-    var box := BoxShape3D.new()
-    box.size = Vector3(0.7, 1.8, 1.7)
-    cs.shape = box
-    cs.position.y = 0.9
-    area.add_child(cs)
-    add_child(area)
-    area.body_entered.connect(_on_hit)
-
 func _on_hit(body: Node3D) -> void:
     if not (body is ArcadeCar) or down_time > 0.0 or not visible:
         return
@@ -423,9 +425,12 @@ func _on_hit(body: Node3D) -> void:
     body.drive_speed *= 0.8
     body.bumped.emit(absf(body.drive_speed))
     if not body.ai:
-        var race := get_tree().current_scene
-        if race != null and race.has_method("cyclist_hit"):
-            race.cyclist_hit()
+        _report_hit()
+
+func _report_hit() -> void:
+    var race := get_tree().current_scene
+    if race != null and race.has_method("cyclist_hit"):
+        race.cyclist_hit()
 
 func _process(delta: float) -> void:
     if route == null:
