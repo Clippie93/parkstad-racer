@@ -9,6 +9,7 @@ extends RefCounted
 # De voorgevel staat op z = 0; tuin of stoep ervoor loopt tot z = +front; het huis zelf
 # ligt achter z = 0 (negatieve z).
 
+const MeshArrays = preload("res://scripts/mesh_arrays.gd")
 const Kit = preload("res://scripts/build_kit.gd")
 
 const GLASS := Color("2b343a")
@@ -411,7 +412,7 @@ static func _bake(root: Node3D) -> ArrayMesh:
 		var nb: Basis = xf.basis.inverse().transposed()
 		var m: Mesh = mi.mesh
 		for i in m.get_surface_count():
-			var a: Array = m.surface_get_arrays(i)
+			var a: Array = MeshArrays.surface(m, i)
 			var vs: PackedVector3Array = a[Mesh.ARRAY_VERTEX]
 			var ns: PackedVector3Array = a[Mesh.ARRAY_NORMAL]
 			var ids = a[Mesh.ARRAY_INDEX]

@@ -3,6 +3,7 @@ extends Node3D
 # tegen de rijrichting in), trapt, en volgt de route rond. Raak je er een, dan valt hij
 # om (en kost het je snelheid); na een paar seconden staat hij weer op en fietst verder.
 const Kit = preload("res://scripts/build_kit.gd")
+const MeshArrays = preload("res://scripts/mesh_arrays.gd")
 
 var route
 var level
@@ -55,7 +56,7 @@ func _vmat() -> StandardMaterial3D:
 
 func _put(mesh: PrimitiveMesh, xf: Transform3D, col: Color, st: SurfaceTool = null) -> void:
     var t: SurfaceTool = st if st != null else _st
-    var arr: Array = mesh.get_mesh_arrays()
+    var arr: Array = MeshArrays.surface(mesh, 0)
     var v: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
     var nr: PackedVector3Array = arr[Mesh.ARRAY_NORMAL]
     var idx: PackedInt32Array = arr[Mesh.ARRAY_INDEX]

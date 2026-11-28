@@ -7,6 +7,7 @@ extends RefCounted
 # een gevel hoort (ramen, letters, panelen) bouw je in de lokale ruimte van een face,
 # dan hoef je nooit meer met wereldcoördinaten of draaiingen te rekenen.
 
+const MeshArrays = preload("res://scripts/mesh_arrays.gd")
 static var _cache: Dictionary = {}
 
 # ---------- materialen ----------
@@ -154,7 +155,7 @@ static func _mesh_from(tris: Array, material: Material) -> ArrayMesh:
     for v: Vector3 in tris:
         st.add_vertex(v)
     st.generate_normals()
-    return st.commit()
+    return MeshArrays.commit(st, material)
 
 static func _two_sided(color: Color) -> StandardMaterial3D:
     var key := "2s|%s" % color.to_html(true)

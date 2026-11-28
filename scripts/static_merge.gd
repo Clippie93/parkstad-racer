@@ -9,6 +9,7 @@ extends RefCounted
 # script met _process (trein, AWACS), onder een bewegend lichaam of in de groep "keep_far".
 # Ook materialen met triplanar-textuur in objectruimte (gevels) blijven los, want die textuur
 # hangt af van het midden van het eigen blok.
+const MeshArrays = preload("res://scripts/mesh_arrays.gd")
 const CELL := 60.0
 const MAX_SIZE := 120.0
 
@@ -39,7 +40,7 @@ static func merge(root: Node3D) -> int:
 			if not groups.has(key):
 				groups[key] = [mat, mi.cast_shadow, PackedVector3Array(), PackedVector3Array(), PackedVector2Array(), PackedInt32Array()]
 			var g: Array = groups[key]
-			var a: Array = mesh.surface_get_arrays(i)
+			var a: Array = MeshArrays.surface(mesh, i)
 			var verts: PackedVector3Array = a[Mesh.ARRAY_VERTEX]
 			var norms = a[Mesh.ARRAY_NORMAL]
 			var uvs = a[Mesh.ARRAY_TEX_UV]
