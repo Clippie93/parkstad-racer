@@ -145,20 +145,26 @@ func _build(shirt: Color, bike: Color, seed_n: int) -> void:
     var dark := Color("1f2226")
     var chrome := Color("a9adb1")
     var racer: bool = kind == "racer"
+    var fat: bool = kind == "fatbike"
     if kind == "ebike":
         hair = [Color("c9c9c4"), Color("9a9a96"), Color("e4e2dc")][rng.randi_range(0, 2)]
     if racer:
         pants = Color("17181b")
     _st = SurfaceTool.new()
     _st.begin(Mesh.PRIMITIVE_TRIANGLES)
-    var R: float = 0.34
+    var R: float = 0.34 if not fat else 0.31
     var rear := Vector3(0, R, 0.55)
-    var front := Vector3(0, R, -0.55)
+    var front := Vector3(0, R, -0.58 if fat else -0.55)
     var bb := Vector3(0, 0.3, 0.02)
     crank_c = bb
-    # wielen
-    _wheel(rear.z, R, 0.035 if not racer else 0.022, chrome)
-    _wheel(front.z, R, 0.035 if not racer else 0.022, chrome)
+    # wielen (fatbike: kleine wielen met dikke, brede banden en zwarte velgen)
+    var tyre: float = 0.035
+    if racer:
+        tyre = 0.022
+    elif fat:
+        tyre = 0.11
+    _wheel(rear.z, R, tyre, chrome if not fat else Color("2a2b2e"))
+    _wheel(front.z, R, tyre, chrome if not fat else Color("2a2b2e"))
     var seat: Vector3
     var head_top: Vector3
     var head_bot: Vector3
@@ -191,6 +197,73 @@ func _build(shirt: Color, bike: Color, seed_n: int) -> void:
         hip = seat + Vector3(0, 0.2, 0.02)
         shoulder = Vector3(0, 1.36, -0.26)
         head_c = Vector3(0, 1.5, -0.42)
+    elif fat:
+        # fatbike: dik frame met accu, lang zadel (soms met iemand achterop), hoog breed stuur,
+        # verende voorvork, grote koplamp en voetsteunen
+        seat = Vector3(0, 0.8, 0.28)
+        head_top = Vector3(0, 0.98, -0.44)
+        head_bot = Vector3(0, 0.66, -0.5)
+        var mid := Vector3(0, 0.62, -0.06)
+        _tube(bb, mid, 0.07, bike)
+        _tube(mid, head_bot, 0.08, bike)
+        _tube(Vector3(0, 0.74, 0.1), Vector3(0, 0.84, -0.4), 0.06, bike)
+        _box(Vector3(0, 0.52, -0.24), Vector3(0.13, 0.18, 0.36), Color("26282b"), Basis(Vector3(1, 0, 0), 0.5))   # accu
+        _tube(bb, Vector3(0, 0.7, 0.18), 0.06, bike)
+        _tube(Vector3(0, 0.7, 0.18), rear + Vector3(0.12, 0, 0), 0.04, bike)
+        _tube(Vector3(0, 0.7, 0.18), rear + Vector3(-0.12, 0, 0), 0.04, bike)
+        _tube(bb + Vector3(0.12, 0, 0), rear + Vector3(0.12, 0, 0), 0.04, bike)
+        _tube(bb + Vector3(-0.12, 0, 0), rear + Vector3(-0.12, 0, 0), 0.04, bike)
+        _box(Vector3(0, R, rear.z), Vector3(0.3, 0.12, 0.12), Color("2a2c30"))   # naafmotor
+        # verende voorvork: dikke poten aan beide kanten van de band
+        for sx in [-1.0, 1.0]:
+            _tube(head_bot + Vector3(sx * 0.12, 0.02, 0), front + Vector3(sx * 0.12, 0, 0), 0.06, Color("2a2c30"))
+            _tube(head_bot + Vector3(sx * 0.12, 0.02, 0), head_bot + Vector3(sx * 0.12, -0.14, -0.03), 0.075, chrome)
+        _tube(head_top, head_bot, 0.08, bike)
+        # spatborden: kort en breed
+        for z in [rear.z, front.z]:
+            _box(Vector3(0, R * 2.0 + 0.04, z), Vector3(0.28, 0.03, 0.32), bike)
+        # lang zadel en bagagedrager
+        _box(Vector3(0, 0.85, 0.36), Vector3(0.22, 0.09, 0.62), Color("141517"))
+        _box(Vector3(0, 0.8, 0.36), Vector3(0.18, 0.03, 0.6), Color("2a2c30"))
+        _tube(Vector3(0, 0.78, 0.62), rear + Vector3(0, 0.1, 0.05), 0.04, Color("2a2c30"))
+        _box(Vector3(0, 0.78, 0.68), Vector3(0.12, 0.05, 0.03), Color("c8241e"))     # achterlicht
+        for sx in [-1.0, 1.0]:
+            _box(Vector3(sx * 0.2, 0.3, 0.42), Vector3(0.12, 0.03, 0.06), Color("2a2c30"))   # voetsteun
+        # koplamp en stuur
+        _ball(head_top + Vector3(0, -0.08, -0.1), 0.075, Color("26282b"))
+        _box(head_top + Vector3(0, -0.08, -0.17), Vector3(0.12, 0.12, 0.02), Color("f4f1d8"))
+        var stem: Vector3 = head_top + Vector3(0, 0.12, 0.04)
+        _tube(head_top, stem, 0.05, Color("2a2c30"))
+        grip_l = stem + Vector3(-0.34, 0.04, 0.12)
+        grip_r = stem + Vector3(0.34, 0.04, 0.12)
+        _tube(grip_l, grip_r, 0.035, Color("2a2c30"))
+        hip = seat + Vector3(0, 0.12, 0.02)
+        shoulder = Vector3(0, 1.4, 0.16)
+        head_c = Vector3(0, 1.56, 0.1)
+        if rng.randf() < 0.35:
+            # iemand achterop, zit stil met de voeten op de steunen
+            var p_shirt: Color = [Color("e9e7e2"), Color("1d1e21"), Color("b9586e"), Color("6d8fb3")][rng.randi_range(0, 3)]
+            var p_skin: Color = SKINS[rng.randi_range(0, SKINS.size() - 1)]
+            var p_hair: Color = HAIRS[rng.randi_range(0, HAIRS.size() - 1)]
+            var p_hip := Vector3(0, 0.94, 0.52)
+            _box(p_hip, Vector3(0.32, 0.13, 0.24), pants)
+            for sx in [-1.0, 1.0]:
+                var knee := Vector3(sx * 0.17, 0.96, 0.2)
+                _tube(p_hip + Vector3(sx * 0.1, 0, 0), knee, 0.12, pants)
+                _tube(knee, Vector3(sx * 0.2, 0.36, 0.38), 0.1, pants)
+                _box(Vector3(sx * 0.2, 0.34, 0.34), Vector3(0.1, 0.07, 0.22), Color("e8e8e4"))
+            _tube(p_hip, Vector3(0, 1.36, 0.5), 0.3, p_shirt)
+            _tube(Vector3(0, 1.34, 0.5), Vector3(0, 1.44, 0.49), 0.08, p_skin)
+            _ball(Vector3(0, 1.5, 0.48), 0.11, p_skin)
+            _ball(Vector3(0, 1.54, 0.5), 0.118, p_hair, Vector3(1.0, 0.85, 1.0))
+            if rng.randf() < 0.5:
+                _box(Vector3(0, 1.4, 0.58), Vector3(0.15, 0.24, 0.08), p_hair)   # lang haar
+            # armen om de bestuurder heen
+            for sx in [-1.0, 1.0]:
+                var p_sh := Vector3(sx * 0.17, 1.3, 0.5)
+                var p_el := Vector3(sx * 0.22, 1.12, 0.38)
+                _tube(p_sh, p_el, 0.08, p_shirt)
+                _tube(p_el, Vector3(sx * 0.15, 1.08, 0.16), 0.07, p_skin)
     else:
         # Hollandse stadsfiets: lage instap, spatborden, kettingkast, bagagedrager, stuur naar achteren
         seat = Vector3(0, 0.8, 0.2)
@@ -266,6 +339,8 @@ func _build(shirt: Color, bike: Color, seed_n: int) -> void:
         _ball(head_c + Vector3(0, 0.04, 0.025), 0.122, hair, Vector3(1.0, 0.85, 1.0))
         if rng.randf() < 0.4:
             _box(head_c + Vector3(0, -0.12, 0.08), Vector3(0.16, 0.22, 0.08), hair)  # lang haar
+    if fat:
+        _box(shoulder + Vector3(0, 0.04, 0.13), Vector3(0.26, 0.16, 0.1), shirt.darkened(0.15))   # capuchon van de hoodie
     if kind == "backpack":
         var pack: Color = [Color("2a2c30"), Color("c84a2a"), Color("2c5a8a"), Color("4a6a3a")][rng.randi_range(0, 3)]
         _box((hip + shoulder) * 0.5 + Vector3(0, 0.06, 0.2), Vector3(0.3, 0.38, 0.16), pack)
@@ -364,7 +439,12 @@ func _process(delta: float) -> void:
     fall = move_toward(fall, 0.0, delta * 4.0)
     check_t -= delta
     s = fposmod(s + side * speed * delta, route.length) if route.closed else clampf(s + side * speed * delta, 0.0, route.length)
-    crank += speed * delta * (2.2 if kind != "racer" else 1.6)
+    var cad: float = 2.2
+    if kind == "racer":
+        cad = 1.6
+    elif kind == "fatbike":
+        cad = 0.9   # de motor doet het werk: rustig meetrappen
+    crank += speed * delta * cad
     # wielen rollen mee: bovenkant naar voren (-Z) = negatieve draaiing om X
     roll = fposmod(roll - speed * delta / wheel_r, TAU)
     for w in wheels:

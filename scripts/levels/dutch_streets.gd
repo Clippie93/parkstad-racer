@@ -102,6 +102,8 @@ func _cyclists() -> void:
         var kinds := ["city", "city", "crate", "child", "backpack", "ebike", "racer"]
         if not lv.is_town(at):
             kinds += ["racer", "racer", "ebike"]
+        else:
+            kinds += ["fatbike", "fatbike"]   # in de stad overal: jongeren op een fatbike
         var kind: String = kinds[rng.randi_range(0, kinds.size() - 1)]
         var v: float = rng.randf_range(4.0, 6.5)
         var shirt: Color = shirts[rng.randi_range(0, shirts.size() - 1)]
@@ -112,6 +114,10 @@ func _cyclists() -> void:
             bike = [Color("101114"), Color("c8c8cc"), Color("b0201a"), Color("1e4fa8")][rng.randi_range(0, 3)]
         elif kind == "ebike":
             v = rng.randf_range(6.0, 7.2)
+        elif kind == "fatbike":
+            v = rng.randf_range(7.5, 9.5)   # met motor, en meestal te hard
+            shirt = [Color("1d1e21"), Color("3b3e44"), Color("8a8d92"), Color("e9e7e2"), Color("3d4a2f"), Color("6b5844")][rng.randi_range(0, 5)]
+            bike = [Color("17181a"), Color("17181a"), Color("4a5236"), Color("c9b896"), Color("e8e8e4"), Color("2b3d5a")][rng.randi_range(0, 5)]
         c.setup(lv, at, v, side, shirt, bike, kind, i + int(lv.seed_value) * 31)
 
 # ---------------------------------------------------------------- kruisingen
