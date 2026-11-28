@@ -6,6 +6,7 @@ extends Node3D
 const ScreenFit = preload("res://scripts/screen_fit.gd")
 const Kit = preload("res://scripts/build_kit.gd")
 const TrafficCar = preload("res://scripts/traffic_car.gd")
+const MotoRider = preload("res://scripts/moto_rider.gd")
 const NetGhosts = preload("res://scripts/net_ghosts.gd")
 var net_ghosts: Node = null
 const RivalDriver = preload("res://scripts/rival_driver.gd")
@@ -957,6 +958,25 @@ func _traffic() -> void:
 		# zodat twee verkeersauto's niet lang naast elkaar blijven rijden
 		var v: float = rng.randf_range(10.0, 14.0) + (8.0 if t.lane > 5.0 else 0.0)
 		t.setup(r, s, end_s, v, against, colors[rng.randi_range(0, colors.size() - 1)], rng.randf() < 0.2, rng.randi_range(0, 99))
+	# af en toe een scooter of motor tussen het verkeer (in de bebouwde kom vaker een
+	# scooter). Eigen rng, zodat de verkeersauto's hetzelfde blijven.
+	var mrng := RandomNumberGenerator.new()
+	mrng.seed = level.seed_value + 4242
+	var nm: int = maxi(1, int(ceil(float(n) / 4.0)))
+	var paints := [Color("e8e6e0"), Color("b8242a"), Color("9fd3bf"), Color("1d1e21"), Color("e0b43a"), Color("6fa8d8"), Color("e06a1e"), Color("2f5d8a"), Color("3f7a3a")]
+	for i in range(nm):
+		var against: bool = i % 2 == 0
+		var s: float = lerpf(160.0, end_s - 30.0, (float(i) + 0.3 + mrng.randf() * 0.4) / float(nm))
+		if r.closed:
+			var span: float = r.length - (0.0 if against else 60.0 + GRID_CLEAR)
+			s = fposmod(START_S + 60.0 + span * (float(i) + 0.3 + mrng.randf() * 0.4) / float(nm), r.length)
+		var kind: String = "scooter" if level.is_town(s) and mrng.randf() < 0.7 else "motor"
+		var v: float = mrng.randf_range(9.0, 11.5) if kind == "scooter" else mrng.randf_range(13.0, 17.0)
+		var m := MotoRider.new()
+		world.add_child(m)
+		traffic.append(m)
+		var l: float = float(level.traffic_lanes[mrng.randi_range(0, level.traffic_lanes.size() - 1)])
+		m.setup_road(r, s, end_s, v, against, l, kind, paints[mrng.randi_range(0, paints.size() - 1)], i + int(level.seed_value) * 17)
 
 # ---------------------------------------------------------------- spel
 # Ondergrond: naast de weg (gras, heide, plein) minder grip en een lagere topsnelheid.
@@ -1835,6 +1855,19 @@ func _build_police_spare() -> void:
 # Geen geld, maar flink wat tijd: doe je het te vaak, dan raak je door je tijd heen. En de
 # politie komt altijd (ook op Makkelijk), tenzij de politie uit staat.
 const CYCLIST_TIME := 8.0
+# scooter of motor aangereden: zelfde straf als bij een fietser
+func rider_hit(kind: String) -> void:
+	var who: String = "SCOOTER" if kind == "scooter" else "MOTORRIJDER"
+	if free:
+		_big("PAS OP, %s!" % who, 1.4, Color("ef5a4f"))
+		return
+	if state != State.RACING:
+		return
+	time_left = maxf(0.0, time_left - CYCLIST_TIME)
+	Sfx.play(self, "fail", -3.0)
+	_big("%s AANGEREDEN!\n-%d s" % [who, int(CYCLIST_TIME)], 1.8, Color("ef5a4f"))
+	spawn_police(0, "Meldkamer: aanrijding met een " + ("scooter" if kind == "scooter" else "motorrijder") + " in %s, het voertuig rijdt door. Eenheid 12, graag aanhouden.", true)
+
 func cyclist_hit() -> void:
 	if free:
 		_big("PAS OP, FIETSER!", 1.4, Color("ef5a4f"))
