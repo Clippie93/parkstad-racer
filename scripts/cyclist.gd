@@ -17,6 +17,9 @@ const CRANK := 0.17
 const THIGH := 0.46
 const SHIN := 0.47
 var crank := 0.0
+var wheels: Array = []    # velg + spaken, draaien om de as
+var wheel_r := 0.34
+var roll := 0.0
 var fall := 0.0           # hoek waarmee hij omligt (0 = rechtop)
 var down_time := 0.0      # hoe lang hij nog blijft liggen
 var check_t := 0.0        # tijd tot de volgende controle of er iets op het fietspad staat
@@ -97,20 +100,31 @@ func _wheel(z: float, r: float, tyre: float, rim_col: Color) -> void:
     t.outer_radius = r
     t.rings = 18
     t.ring_segments = 5
-    # torus ligt plat (as langs Y): kantelen zodat de as langs X loopt
+    # torus ligt plat (as langs Y): kantelen zodat de as langs X loopt. De band is rond en
+    # blijft in het vaste deel; velg, spaken en naaf draaien (eigen mesh rond de as).
     _put(t, Transform3D(Basis(Vector3(0, 0, 1), PI * 0.5), Vector3(0, r, z)), Color("1c1d20"))
+    var st := SurfaceTool.new()
+    st.begin(Mesh.PRIMITIVE_TRIANGLES)
     var rim := TorusMesh.new()
     rim.inner_radius = r - tyre - 0.025
     rim.outer_radius = r - tyre + 0.005
     rim.rings = 18
     rim.ring_segments = 4
-    _put(rim, Transform3D(Basis(Vector3(0, 0, 1), PI * 0.5), Vector3(0, r, z)), rim_col)
+    _put(rim, Transform3D(Basis(Vector3(0, 0, 1), PI * 0.5), Vector3.ZERO), rim_col, st)
     # spaken: drie dunne balken door de naaf
     for k in 3:
         var ang: float = PI * float(k) / 3.0
         var dir := Vector3(0, cos(ang), sin(ang)) * (r - tyre - 0.01)
-        _tube(Vector3(0, r, z) - dir, Vector3(0, r, z) + dir, 0.012, Color("b8bcc0"))
-    _box(Vector3(0, r, z), Vector3(0.1, 0.05, 0.05), Color("8a8e92"))
+        _tube(-dir, dir, 0.012, Color("b8bcc0"), st)
+    _box(Vector3.ZERO, Vector3(0.1, 0.05, 0.05), Color("8a8e92"), Basis(), st)
+    var w := MeshInstance3D.new()
+    w.name = "Wheel"
+    w.mesh = st.commit()
+    w.material_override = _vmat()
+    w.position = Vector3(0, r, z)
+    add_child(w)
+    wheels.append(w)
+    wheel_r = r
 
 func _mudguard(z: float, r: float, col: Color) -> void:
     var prev := Vector3.ZERO
@@ -351,6 +365,10 @@ func _process(delta: float) -> void:
     check_t -= delta
     s = fposmod(s + side * speed * delta, route.length) if route.closed else clampf(s + side * speed * delta, 0.0, route.length)
     crank += speed * delta * (2.2 if kind != "racer" else 1.6)
+    # wielen rollen mee: bovenkant naar voren (-Z) = negatieve draaiing om X
+    roll = fposmod(roll - speed * delta / wheel_r, TAU)
+    for w in wheels:
+        (w as Node3D).rotation.x = roll
     _pose_legs()
     _apply()
 
